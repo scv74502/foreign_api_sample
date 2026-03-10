@@ -25,8 +25,8 @@
 
 ** .env 파일이 저장소에 포함된 이유**
 
-평가자가 별도 환경 설정 없이 즉시 실행할 수 있도록 `.env` 파일을 저장소에 포함했습니다.
-편의성을 위한 설정일 뿐, 실제 프로젝트에는 .env 파일을 git에 포함하면 안 됩니다.
+별도 환경 설정 없이 즉시 실행할 수 있도록 `.env` 파일을 저장소에 포함했습니다.
+편의성을 위한 설정일 뿐, 실제 프로덕션 환경에서는 .env 파일을 git에 포함하면 안 됩니다.
 - `.gitignore`에 `.env` 추가 필수
 
 #### .env 파일 관리 환경변수
@@ -105,6 +105,7 @@ docker-compose up -d
 ```
 
 ## 아키텍처 및 기술 의사결정
+상세한 분석 및 트레이드오프는 [analysis_document.md](analysis_document.md) 참조.
 
 ### 1. 비동기 처리
 
@@ -141,5 +142,3 @@ docker-compose up -d
 | 요구사항 | 고려 방안 | 선택 | 이유 |
 |---------|----------|------|------|
 | HTTP 클라이언트 선택 | RestTemplate, OpenFeign,<br>RestClient, WebClient | **WebClient** | Coroutine 통합(awaitBody), 논블로킹 I/O.<br>WebFlux 전면 도입 없이 HTTP 클라이언트만 활용 |
-
-상세한 분석 및 트레이드오프는 [analysis_document.md](analysis_document.md) 참조.

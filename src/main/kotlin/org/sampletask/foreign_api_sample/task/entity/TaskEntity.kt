@@ -19,34 +19,34 @@ class TaskEntity(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0,
 
-    @Column(nullable = false, columnDefinition = "TINYINT", comment = "작업 상태 (TaskStatus enum의 code 값)")
+    @Column(nullable = false, columnDefinition = "TINYINT")
     var status: Int = TaskStatus.PENDING.code,
 
-    @Column(name = "idempotency_key", nullable = false, unique = true, length = 255, comment = "멱등성 키 (중복 요청 방지)")
+    @Column(name = "idempotency_key", nullable = false, unique = true, length = 255)
     val idempotencyKey: String,
 
-    @Column(name = "image_url", nullable = false, length = 2048, comment = "처리 대상 이미지 URL")
+    @Column(name = "image_url", nullable = false, length = 2048)
     val imageUrl: String,
 
-    @Column(name = "external_job_id", nullable = true, length = 255, comment = "외부 서비스(Mock Worker)에서 발급받은 작업 ID")
+    @Column(name = "external_job_id", nullable = true, length = 255)
     var externalJobId: String? = null,
 
-    @Column(name = "retry_count", nullable = false, comment = "재시도 횟수")
+    @Column(name = "retry_count", nullable = false)
     var retryCount: Int = 0,
 
-    @Column(nullable = true, columnDefinition = "TEXT", comment = "처리 결과 (완료 시)")
+    @Column(nullable = true, columnDefinition = "TEXT")
     var result: String? = null,
 
-    @Column(name = "error_code", nullable = true, length = 100, comment = "에러 코드 (실패 시)")
+    @Column(name = "error_code", nullable = true, length = 100)
     var errorCode: String? = null,
 
-    @Column(name = "error_message", nullable = true, columnDefinition = "TEXT", comment = "에러 메시지 (실패 시)")
+    @Column(name = "error_message", nullable = true, columnDefinition = "TEXT")
     var errorMessage: String? = null,
 
-    @Column(name = "created_at", nullable = false, updatable = false, comment = "생성 시각")
+    @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 
-    @Column(name = "updated_at", nullable = false, comment = "수정 시각")
+    @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
 
     @Version
