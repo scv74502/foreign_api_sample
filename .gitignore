@@ -38,3 +38,13 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### macOS ###
+.DS_Store
+*.swp
+*~
+
+### Environment ###
+# .env는 과제 프로젝트 특성상 평가자의 실행 편의를 위해 포함됨
+# 실제 프로덕션 프로젝트에서는 .env 파일을 반드시 gitignore에 포함해야 함
+# .env
