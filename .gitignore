@@ -38,3 +38,11 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### macOS ###
+.DS_Store
+*.swp
+*~
+
+### Environment ###
+.env
