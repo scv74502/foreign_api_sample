@@ -1,6 +1,7 @@
 package org.sampletask.foreign_api_sample
 
 import org.junit.jupiter.api.Test
+import org.sampletask.foreign_api_sample.config.TestcontainersConfiguration
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 

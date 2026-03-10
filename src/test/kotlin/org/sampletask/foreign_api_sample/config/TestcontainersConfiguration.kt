@@ -1,4 +1,4 @@
-package org.sampletask.foreign_api_sample
+package org.sampletask.foreign_api_sample.config
 
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
