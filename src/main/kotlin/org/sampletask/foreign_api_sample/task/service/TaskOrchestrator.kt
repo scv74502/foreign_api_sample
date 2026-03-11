@@ -1,9 +1,11 @@
 package org.sampletask.foreign_api_sample.task.service
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.withTimeout
 import org.sampletask.foreign_api_sample.common.ErrorCode
 import org.sampletask.foreign_api_sample.task.client.MockWorkerClient
 import org.sampletask.foreign_api_sample.task.domain.RecoveryAction
@@ -24,6 +26,7 @@ class TaskOrchestrator(
 	@Value("\${task.polling.max-interval-ms:10000}") private val maxIntervalMs: Long,
 	@Value("\${task.polling.multiplier:2.0}") private val multiplier: Double,
 	@Value("\${task.polling.max-concurrent:5}") private val maxConcurrentPolling: Int,
+	@Value("\${task.polling.max-total-duration-ms:300000}") private val maxTotalDurationMs: Long,
 ) {
 	private val log = LoggerFactory.getLogger(javaClass)
 	private val pollingSemaphore = Semaphore(maxConcurrentPolling)
@@ -67,35 +70,39 @@ class TaskOrchestrator(
 
 		pollingSemaphore.acquire()
 		try {
-			while (true) {
-				val jitter = intervalMs * (0.5 + Math.random() * 0.5)
-				delay(jitter.toLong())
+			withTimeout(maxTotalDurationMs) {
+				while (true) {
+					val jitter = intervalMs * (0.5 + Math.random() * 0.5)
+					delay(jitter.toLong())
 
-				try {
-					val status = mockWorkerClient.getJobStatus(jobId)
+					try {
+						val status = mockWorkerClient.getJobStatus(jobId)
 
-					when (status.status) {
-						"COMPLETED" -> {
-							val current = taskService.getTask(taskId)
-							current.result = status.result
-							current.transitionTo(TaskStatus.COMPLETED)
-							taskService.updateTask(current)
-							log.info("작업 {} 완료", taskId)
-							return
+						when (status.status) {
+							"COMPLETED" -> {
+								val current = taskService.getTask(taskId)
+								current.result = status.result
+								current.transitionTo(TaskStatus.COMPLETED)
+								taskService.updateTask(current)
+								log.info("작업 {} 완료", taskId)
+								return@withTimeout
+							}
+							"FAILED" -> {
+								failTask(taskId, status.errorCode, status.errorMessage)
+								return@withTimeout
+							}
+							else -> {
+								intervalMs = (intervalMs * multiplier).toLong().coerceAtMost(maxIntervalMs)
+							}
 						}
-						"FAILED" -> {
-							failTask(taskId, status.errorCode, status.errorMessage)
-							return
-						}
-						else -> {
-							intervalMs = (intervalMs * multiplier).toLong().coerceAtMost(maxIntervalMs)
-						}
+					} catch (e: MockWorkerException) {
+						handleError(taskId, e)
+						return@withTimeout
 					}
-				} catch (e: MockWorkerException) {
-					handleError(taskId, e)
-					return
 				}
 			}
+		} catch (e: TimeoutCancellationException) {
+			failTask(taskId, ErrorCode.POLLING_TIMEOUT.code, ErrorCode.POLLING_TIMEOUT.message(taskId))
 		} finally {
 			pollingSemaphore.release()
 		}
@@ -107,12 +114,9 @@ class TaskOrchestrator(
 				val current = taskService.getTask(taskId)
 				if (current.retryCount < maxRetryCount) {
 					current.retryCount++
-					current.transitionTo(TaskStatus.FAILED)
-					val updated = taskService.updateTask(current)
-					log.warn("작업 {} 일시적 오류 (재시도 {}/{}): {}", taskId, updated.retryCount, maxRetryCount, e.message)
-
-					updated.transitionTo(TaskStatus.PENDING)
-					val pending = taskService.updateTask(updated)
+					current.transitionTo(TaskStatus.PENDING)
+					val pending = taskService.updateTask(current)
+					log.warn("작업 {} 일시적 오류 (재시도 {}/{}): {}", taskId, pending.retryCount, maxRetryCount, e.message)
 					submitAsync(pending)
 				} else {
 					failTask(

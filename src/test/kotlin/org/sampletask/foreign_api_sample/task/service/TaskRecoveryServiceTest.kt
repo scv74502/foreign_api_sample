@@ -172,16 +172,38 @@ class TaskRecoveryServiceTest {
 		}
 
 		@Test
-		fun `외부_조회_기타_오류_시_폴링_재개`() {
+		fun `외부_조회_기타_오류_시_FAILED_전이`() {
 			runTest {
 				val entity = createEntity(id = 7L, status = TaskStatus.PROCESSING, externalJobId = "job-7")
 				whenever(taskRepository.findAllByStatusIn(any())).thenReturn(listOf(entity))
+				whenever(taskService.updateTask(any())).thenAnswer { it.arguments[0] }
 				whenever(mockWorkerClient.getJobStatus("job-7"))
 					.thenThrow(MockWorkerException(500, "Server Error", RecoveryAction.RETRY))
 
 				recoveryService.recoverTasks()
 
-				verify(taskOrchestrator).submitAsync(any(), anyOrNull())
+				verify(taskService).updateTask(
+					org.mockito.kotlin.argThat { status == TaskStatus.FAILED && errorCode == "RECOVERY_FAILED" },
+				)
+				verify(taskOrchestrator, never()).submitAsync(any(), anyOrNull())
+			}
+		}
+
+		@Test
+		fun `복구_중_예상치_못한_예외_시_FAILED_전이`() {
+			runTest {
+				val entity = createEntity(id = 8L, status = TaskStatus.PROCESSING, externalJobId = "job-8")
+				whenever(taskRepository.findAllByStatusIn(any())).thenReturn(listOf(entity))
+				whenever(taskService.updateTask(any())).thenAnswer { it.arguments[0] }
+				whenever(mockWorkerClient.getJobStatus("job-8"))
+					.thenThrow(RuntimeException("unexpected error"))
+
+				recoveryService.recoverTasks()
+
+				verify(taskService).updateTask(
+					org.mockito.kotlin.argThat { status == TaskStatus.FAILED && errorCode == "RECOVERY_FAILED" },
+				)
+				verify(taskOrchestrator, never()).submitAsync(any(), anyOrNull())
 			}
 		}
 	}

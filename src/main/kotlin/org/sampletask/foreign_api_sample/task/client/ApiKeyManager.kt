@@ -1,5 +1,8 @@
 package org.sampletask.foreign_api_sample.task.client
 
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.sampletask.foreign_api_sample.task.client.request.IssueKeyRequest
 import org.sampletask.foreign_api_sample.task.client.response.IssueKeyResponse
 import org.sampletask.foreign_api_sample.task.exception.ApiKeyUnavailableException
@@ -10,7 +13,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.awaitBody
-import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.pow
 
 @Component
 class ApiKeyManager(
@@ -24,7 +27,7 @@ class ApiKeyManager(
 	private var _apiKey: String? = null
 	val apiKey: String? get() = _apiKey
 
-	private val reissueLock = AtomicBoolean(false)
+	private val reissueMutex = Mutex()
 
 	@EventListener(ApplicationReadyEvent::class)
 	fun onApplicationReady() {
@@ -43,12 +46,12 @@ class ApiKeyManager(
 	}
 
 	suspend fun reissueApiKey() {
-		if (!reissueLock.compareAndSet(false, true)) {
-			log.debug("API Key 재발급이 이미 진행 중입니다")
-			return
-		}
+		reissueMutex.withLock {
+			if (_apiKey != null) {
+				log.debug("API Key가 이미 재발급되었습니다")
+				return
+			}
 
-		try {
 			repeat(MAX_REISSUE_ATTEMPTS) { attempt ->
 				try {
 					issueApiKey()
@@ -61,10 +64,9 @@ class ApiKeyManager(
 							"API Key 재발급 실패 (${MAX_REISSUE_ATTEMPTS}회 시도): ${e.message}",
 						)
 					}
+					delay(INITIAL_BACKOFF_MS * 3.0.pow(attempt).toLong())
 				}
 			}
-		} finally {
-			reissueLock.set(false)
 		}
 	}
 
@@ -82,5 +84,6 @@ class ApiKeyManager(
 
 	companion object {
 		private const val MAX_REISSUE_ATTEMPTS = 3
+		private const val INITIAL_BACKOFF_MS = 1000L
 	}
 }

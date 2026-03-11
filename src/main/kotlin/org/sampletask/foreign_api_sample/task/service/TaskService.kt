@@ -27,6 +27,9 @@ class TaskService(
 		val existing = taskRepository.findByIdempotencyKeyAndCreatedAtAfter(idempotencyKey, cutoff)
 
 		if (existing != null) {
+			if (existing.imageUrl != imageUrl) {
+				throw IdempotencyKeyConflictException(idempotencyKey)
+			}
 			log.debug("멱등성 키 {} 로 기존 작업 반환: {}", idempotencyKey, existing.id)
 			return TaskMapper.toDomain(existing)
 		}
@@ -44,6 +47,9 @@ class TaskService(
 			// UNIQUE 제약 위반 race condition 대응
 			val raceWinner = taskRepository.findByIdempotencyKeyAndCreatedAtAfter(idempotencyKey, cutoff)
 			if (raceWinner != null) {
+				if (raceWinner.imageUrl != imageUrl) {
+					throw IdempotencyKeyConflictException(idempotencyKey)
+				}
 				TaskMapper.toDomain(raceWinner)
 			} else {
 				throw IdempotencyKeyConflictException(idempotencyKey)

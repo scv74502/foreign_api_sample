@@ -2,6 +2,12 @@ spring:
   datasource:
     url: ${TEST_DATASOURCE_URL:jdbc:tc:mysql:8.0:///foreign_api_sample}
     driver-class-name: ${TEST_DATASOURCE_DRIVER:org.testcontainers.jdbc.ContainerDatabaseDriver}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
 
   jpa:
     hibernate:
@@ -22,8 +28,23 @@ mock-worker:
     candidate-name: test-candidate
     email: test@example.com
 
+resilience4j:
+  circuitbreaker:
+    instances:
+      mock-worker:
+        register-health-indicator: false
+        sliding-window-size: 100
+        minimum-number-of-calls: 100
+        failure-rate-threshold: 100
+        wait-duration-in-open-state:
+          seconds: 1
+
 task:
   max-retry-count: 3
+  idempotency:
+    expiry-hours: 24
+    cleanup-cron: "-"
   polling:
     initial-interval-ms: 100
     max-interval-ms: 500
+    max-total-duration-ms: 5000

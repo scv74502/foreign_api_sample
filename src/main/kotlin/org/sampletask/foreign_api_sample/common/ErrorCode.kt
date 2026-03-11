@@ -7,10 +7,13 @@ enum class ErrorCode(val code: String, val messageTemplate: String) {
 	EXTERNAL_SERVICE_ERROR("EXTERNAL_SERVICE_ERROR", "Mock Worker error: HTTP %s%s"),
 	EXTERNAL_HTTP_ERROR("EXTERNAL_HTTP_ERROR", "External service HTTP error: %s"),
 	API_KEY_UNAVAILABLE("API_KEY_UNAVAILABLE", "API Key unavailable: %s"),
+	INVALID_URL_FORMAT("INVALID_URL_FORMAT", "%s"),
 	VALIDATION_ERROR("VALIDATION_ERROR", "%s"),
 	MISSING_HEADER("MISSING_HEADER", "%s"),
 	BAD_REQUEST("BAD_REQUEST", "%s"),
 	INTERNAL_ERROR("INTERNAL_ERROR", "%s"),
+	POLLING_TIMEOUT("POLLING_TIMEOUT", "폴링 최대 시간 초과: %s"),
+	RECOVERY_FAILED("RECOVERY_FAILED", "작업 복구 실패: %s"),
 	UNKNOWN_TASK_STATUS("UNKNOWN_TASK_STATUS", "Unknown TaskStatus code: %s"),
 	;
 

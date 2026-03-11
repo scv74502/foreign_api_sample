@@ -13,6 +13,12 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
 
   jpa:
     hibernate:
@@ -39,11 +45,15 @@ mock-worker:
 
 task:
   max-retry-count: 3
+  idempotency:
+    expiry-hours: 24
+    cleanup-cron: "0 0 3 * * *"
   polling:
     initial-interval-ms: 2000
     max-interval-ms: 10000
     multiplier: 2.0
     max-concurrent: 5
+    max-total-duration-ms: 300000
 
 resilience4j:
   circuitbreaker:
@@ -54,18 +64,6 @@ resilience4j:
           seconds: 30
         sliding-window-size: 10
         minimum-number-of-calls: 5
-
-  retry:
-    instances:
-      mock-worker:
-        max-attempts: 3
-        wait-duration:
-          seconds: 60
-        enable-exponential-backoff: true
-        exponential-backoff-multiplier: 3
-        exponential-max-wait-duration:
-          seconds: 600
-        enable-randomized-wait: true
 
   ratelimiter:
     instances:

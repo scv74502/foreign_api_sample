@@ -15,8 +15,11 @@
 
 - Spring Data JPA
 - Spring Web (MVC)
+- Spring WebFlux (WebClient only)
 - Flyway Migration
 - SpringDoc OpenAPI (Swagger UI) 2.8.16
+- Resilience4j (Circuit Breaker, Rate Limiter, Bulkhead)
+- Kotlin Coroutines
 - Testcontainers
 
 ## 환경 설정
@@ -52,6 +55,10 @@
 | **Test JPA 설정** |
 | TEST_JPA_HIBERNATE_DDL_AUTO | 테스트 DDL 자동 생성 모드 | validate |
 | TEST_JPA_SHOW_SQL | 테스트 SQL 로그 출력 | false |
+| **Mock Worker** |
+| MOCK_WORKER_BASE_URL | 외부 서비스 기본 URL | https://dev.realteeth.ai/mock |
+| MOCK_WORKER_CANDIDATE_NAME | 후보자 이름 | scv74502 |
+| MOCK_WORKER_EMAIL | 후보자 이메일 | scv74502@gmail.com |
 
 ### 데이터소스 구조
 
@@ -146,7 +153,7 @@ docker-compose up -d
 
 | 요구사항 | 고려 방안 | 선택 | 이유 |
 |---------|----------|------|------|
-| 작업 생명주기 추적 및<br>서버 재시작 시 정합성 보장 | 외부 서비스 상태 그대로 사용<br>(3단계) vs 중간 상태 추가(4단계) | **4단계 FSM**<br>(PENDING, PROCESSING,<br>COMPLETED, FAILED) | DB 저장 후 외부 전달 전 구간을 명시적으로 표현.<br>서버 다운 시 작업 복구 가능. Enum + Optimistic Lock으로 상태 전이 정합성 보장 |
+| 작업 생명주기 추적 및<br>서버 재시작 시 정합성 보장 | 외부 서비스 상태 그대로 사용<br>(3단계) vs 중간 상태 추가 | **5단계 FSM**<br>(PENDING, PROCESSING,<br>COMPLETED, FAILED,<br>CANCELLED) | DB 저장 후 외부 전달 전 구간을 명시적으로 표현.<br>서버 다운 시 작업 복구 가능. CANCELLED는 향후 요구사항 대비.<br>Enum + Optimistic Lock으로 상태 전이 정합성 보장 |
 
 ### 3. 멱등성 처리
 
@@ -158,7 +165,7 @@ docker-compose up -d
 
 | 요구사항 | 고려 방안 | 선택 | 이유 |
 |---------|----------|------|------|
-| 외부 서비스 불안정 대응<br>(500, 429, Timeout 등) | 수동 재시도, Spring Retry,<br>Resilience4j | **Resilience4j**<br>(Circuit Breaker, Retry,<br>Rate Limiter, Bulkhead) | 경량, 데코레이터 패턴으로 모듈 조합 가능.<br>Kotlin Coroutine 지원.<br>외부 장애 전파 차단 및 자동 복구 |
+| 외부 서비스 불안정 대응<br>(500, 429, Timeout 등) | 수동 재시도, Spring Retry,<br>Resilience4j | **Resilience4j**<br>(Circuit Breaker,<br>Rate Limiter, Bulkhead)<br>+ 자체 재시도 로직 | 경량, 데코레이터 패턴으로 모듈 조합 가능.<br>Kotlin Coroutine 지원.<br>재시도는 TaskOrchestrator에서 직접 관리하여<br>상태 전이와 통합 |
 
 ### 5. 처리 보장 모델
 
@@ -181,7 +188,7 @@ docker-compose up -d
 - 동일 키로 재요청 시 새 작업을 생성하지 않고 기존 작업을 반환합니다.
 
 **DB UNIQUE 제약조건 (최종 방어선):**
-- `(idempotency_key, image_url)` 조합에 UNIQUE 제약이 설정되어 있습니다.
+- `idempotency_key`에 UNIQUE 제약이 설정되어 있습니다.
 - 동시에 동일 키로 요청이 도달해도 하나의 INSERT만 성공하고, 나머지는 UNIQUE 제약 위반 예외를 받아 기존 작업을 조회하여 반환합니다.
 - 동일 키 + 다른 imageUrl 요청 시 409 Conflict를 반환하여 키 오용을 감지합니다.
 
@@ -204,11 +211,11 @@ docker-compose up -d
 
 **2순위: DB Connection Pool**
 - 코루틴 다수가 동시에 DB 커넥션을 요구하면 풀 고갈이 발생합니다.
-- HikariCP 풀 사이즈를 적정 수준으로 설정하고, 커넥션 획득 타임아웃을 짧게 설정하여 풀 고갈 시 빠르게 실패하도록 합니다.
+- HikariCP 풀 사이즈를 명시적으로 설정하고(maximum-pool-size: 10, minimum-idle: 5), 커넥션 획득 타임아웃을 설정하여(30초) 풀 고갈 시 빠르게 실패하도록 합니다.
 
 **3순위: Polling 부하**
 - PROCESSING 상태 작업이 N개이면 초당 N/interval건의 GET 요청이 외부 서비스에 발생합니다.
-- Polling 간격을 점진적으로 늘리고(2초 → 10초), 동시 Polling 수에 상한을 두어 제어합니다.
+- Polling 간격을 점진적으로 늘리고(2초 → 10초, multiplier 2.0 + jitter), 동시 Polling 수에 상한을 두며(Semaphore 5개), 최대 폴링 시간 제한(5분)을 적용하여 무한 폴링을 방지합니다.
 
 **4순위: 서블릿 커넥션 한계**
 - OS 레벨 소켓 한계(file descriptor)에 도달할 수 있습니다.
