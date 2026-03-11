@@ -50,6 +50,7 @@ task:
     max-interval-ms: 10000
     multiplier: 2.0
     max-concurrent: 5
+    max-total-duration-ms: 300000
 
 resilience4j:
   circuitbreaker:
