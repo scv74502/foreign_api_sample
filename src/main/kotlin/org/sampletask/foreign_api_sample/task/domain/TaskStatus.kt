@@ -11,7 +11,7 @@ enum class TaskStatus(val code: Int) {
 	fun canTransitionTo(target: TaskStatus): Boolean {
 		return when (this) {
 			PENDING -> target in listOf(PROCESSING, CANCELLED)
-			PROCESSING -> target in listOf(COMPLETED, FAILED, CANCELLED)
+			PROCESSING -> target in listOf(COMPLETED, FAILED, CANCELLED, PENDING) // PENDING 복귀는 recovery 전용
 			FAILED -> target == PENDING // 재시도 시 PENDING으로 복귀
 			COMPLETED, CANCELLED -> false
 		}

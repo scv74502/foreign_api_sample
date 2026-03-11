@@ -50,5 +50,5 @@ class TaskEntity(
 	var updatedAt: Instant = Instant.now(),
 
 	@Version
-	val version: Long = 0,
+	var version: Long = 0,
 )
