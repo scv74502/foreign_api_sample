@@ -149,6 +149,25 @@ class TaskOrchestratorTest {
 		}
 
 		@Test
+		fun `RETRY_retryAfterMs_전달_시_submitAsync에_delayMs_전달`() {
+			runTest {
+				val task = createTask()
+
+				whenever(taskService.getTask(1L)).thenReturn(task)
+				whenever(taskService.updateTask(any())).thenAnswer { it.arguments[0] as Task }
+				whenever(mockWorkerClient.submitProcess(any()))
+					.thenThrow(
+						MockWorkerException(429, "Too Many Requests", RecoveryAction.RETRY, retryAfterMs = 5000L),
+					)
+
+				orchestrator.processTask(task)
+
+				assertThat(task.retryCount).isEqualTo(1)
+				assertThat(task.status).isEqualTo(TaskStatus.PENDING)
+			}
+		}
+
+		@Test
 		fun `REVERT_TO_PENDING_externalJobId_초기화_후_PENDING_복귀`() {
 			runTest {
 				val task = createTask(status = TaskStatus.PENDING)

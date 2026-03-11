@@ -24,8 +24,9 @@ class TaskOrchestrator(
 ) {
 	private val log = LoggerFactory.getLogger(javaClass)
 
-	fun submitAsync(task: Task) {
+	fun submitAsync(task: Task, delayMs: Long? = null) {
 		scope.launch {
+			if (delayMs != null) delay(delayMs)
 			processTask(task)
 		}
 	}
