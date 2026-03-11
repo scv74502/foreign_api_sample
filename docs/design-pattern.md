@@ -37,7 +37,7 @@ org.sampletask.foreign_api_sample/
     common/                               # 도메인 횡단 공통 클래스
         ErrorCode.kt                      # 에러 코드/메시지 enum
         GlobalExceptionHandler.kt         # 전역 예외 처리
-        dto/                              # 공통 DTO (ErrorResponse 등)
+        exception/                        # 공통 예외 (ErrorResponse, 추상 예외 클래스)
     config/                               # 공통 설정
     <도메인>/                              # 도메인별 패키지 (예: task)
         domain/                           # POJO, VO, enum (순수 도메인, JPA 의존 없음)
@@ -46,8 +46,12 @@ org.sampletask.foreign_api_sample/
         repository/                       # JPA 리포지토리
         service/                          # 비즈니스 로직
         controller/                       # REST 컨트롤러 (API 인터페이스 + 구현)
+            request/                      # 요청 DTO
+            response/                     # 응답 DTO
         client/                           # 외부 API 클라이언트
-        exception/                        # 도메인 예외
+            request/                      # 요청 DTO
+            response/                     # 응답 DTO
+        exception/                        # 도메인 예외 (구체 클래스)
 ```
 
 ## 에러 메시지/코드 관리
