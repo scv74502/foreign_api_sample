@@ -183,6 +183,19 @@ class TaskApiIntegrationTest {
 	}
 
 	@Test
+	fun `유효하지_않은_URL_포맷이면_422`() {
+		mockMvc
+			.perform(
+				MockMvcRequestBuilders
+					.post("/api/tasks")
+					.header("X-Idempotency-Key", "validation-url-key-${System.nanoTime()}")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""{"imageUrl": "not-a-url"}"""),
+			).andExpect(status().isUnprocessableEntity)
+			.andExpect(jsonPath("$.code").value("INVALID_URL_FORMAT"))
+	}
+
+	@Test
 	fun `imageUrl이_빈_문자열이면_400`() {
 		mockMvc
 			.perform(

@@ -47,10 +47,16 @@ class GlobalExceptionHandler {
 
 	@ExceptionHandler(MethodArgumentNotValidException::class)
 	fun handleValidation(e: MethodArgumentNotValidException): ResponseEntity<ErrorResponse> {
+		val hasUrlViolation = e.bindingResult.fieldErrors.any { it.code == "URL" }
 		val message =
 			e.bindingResult.fieldErrors.joinToString(", ") {
 				"${it.field}: ${it.defaultMessage}"
 			}
+		if (hasUrlViolation) {
+			return ResponseEntity
+				.status(HttpStatus.UNPROCESSABLE_ENTITY)
+				.body(ErrorResponse(code = ErrorCode.INVALID_URL_FORMAT.code, message = message))
+		}
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
 			.body(ErrorResponse(code = ErrorCode.VALIDATION_ERROR.code, message = message))
