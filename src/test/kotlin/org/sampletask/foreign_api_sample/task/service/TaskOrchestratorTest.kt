@@ -104,7 +104,7 @@ class TaskOrchestratorTest {
 	inner class 복구액션별에러처리 {
 
 		@Test
-		fun `RETRY_재시도_횟수_미만이면_PENDING_복귀_후_재시도`() {
+		fun `RETRY_재시도_횟수_미만이면_PROCESSING에서_PENDING_직접_전이`() {
 			runTest {
 				val task = createTask()
 
@@ -117,6 +117,8 @@ class TaskOrchestratorTest {
 
 				assertThat(task.retryCount).isEqualTo(1)
 				assertThat(task.status).isEqualTo(TaskStatus.PENDING)
+				// PROCESSING→PENDING 1회 업데이트 (FAILED 중간 전이 없음)
+				verify(taskService, times(2)).updateTask(any()) // PROCESSING 전이 + PENDING 전이
 			}
 		}
 
