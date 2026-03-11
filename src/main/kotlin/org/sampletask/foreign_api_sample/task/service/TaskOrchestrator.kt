@@ -107,12 +107,9 @@ class TaskOrchestrator(
 				val current = taskService.getTask(taskId)
 				if (current.retryCount < maxRetryCount) {
 					current.retryCount++
-					current.transitionTo(TaskStatus.FAILED)
-					val updated = taskService.updateTask(current)
-					log.warn("작업 {} 일시적 오류 (재시도 {}/{}): {}", taskId, updated.retryCount, maxRetryCount, e.message)
-
-					updated.transitionTo(TaskStatus.PENDING)
-					val pending = taskService.updateTask(updated)
+					current.transitionTo(TaskStatus.PENDING)
+					val pending = taskService.updateTask(current)
+					log.warn("작업 {} 일시적 오류 (재시도 {}/{}): {}", taskId, pending.retryCount, maxRetryCount, e.message)
 					submitAsync(pending)
 				} else {
 					failTask(
