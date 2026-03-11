@@ -59,3 +59,14 @@ org.sampletask.foreign_api_sample/
 ## 테스트
 - Testcontainers MySQL 기반 통합 테스트
 - 단위 테스트: Spring 컨텍스트 없이 순수 로직 테스트
+- **메서드명:** 백틱 함수명 내 띄어쓰기 대신 언더바 사용
+- **그룹핑:** 같은 주제의 테스트는 `@Nested inner class`로 묶어 맥락 제공
+- **하이픈 금지:** `-` 대신 의미 있는 단어로 대체 (예: `유효한 전이 -` → `유효한_전이_검증`)
+- 예시:
+  ```kotlin
+  @Nested
+  inner class 유효한_전이 {
+      @Test
+      fun `PENDING에서_PROCESSING으로_상태_변경`() { ... }
+  }
+  ```

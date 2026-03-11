@@ -46,6 +46,7 @@ dependencies {
 	testImplementation("org.wiremock:wiremock-standalone:3.10.0")
 	testImplementation("org.awaitility:awaitility-kotlin:4.2.2")
 	testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
+	testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
