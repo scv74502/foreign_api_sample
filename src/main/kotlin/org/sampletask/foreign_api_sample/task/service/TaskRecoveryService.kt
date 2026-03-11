@@ -2,6 +2,7 @@ package org.sampletask.foreign_api_sample.task.service
 
 import kotlinx.coroutines.runBlocking
 import org.sampletask.foreign_api_sample.task.client.MockWorkerClient
+import org.sampletask.foreign_api_sample.task.domain.RecoveryAction
 import org.sampletask.foreign_api_sample.task.domain.TaskStatus
 import org.sampletask.foreign_api_sample.task.entity.mapper.TaskMapper
 import org.sampletask.foreign_api_sample.task.exception.MockWorkerException
@@ -74,7 +75,7 @@ class TaskRecoveryService(
 					}
 				}
 			} catch (e: MockWorkerException) {
-				if (e.upstreamHttpStatus == 404) {
+				if (e.recoveryAction == RecoveryAction.REVERT_TO_PENDING) {
 					log.warn("작업 {} 의 외부 Job 404 - PENDING 복귀", task.id)
 					task.externalJobId = null
 					task.transitionTo(TaskStatus.PENDING)

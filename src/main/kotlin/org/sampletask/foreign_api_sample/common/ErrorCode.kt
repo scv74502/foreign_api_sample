@@ -5,6 +5,7 @@ enum class ErrorCode(val code: String, val messageTemplate: String) {
 	IDEMPOTENCY_KEY_CONFLICT("IDEMPOTENCY_KEY_CONFLICT", "Idempotency key conflict: %s"),
 	INVALID_TASK_STATE("INVALID_TASK_STATE", "Cannot transition from %s to %s"),
 	EXTERNAL_SERVICE_ERROR("EXTERNAL_SERVICE_ERROR", "Mock Worker error: HTTP %s%s"),
+	EXTERNAL_HTTP_ERROR("EXTERNAL_HTTP_ERROR", "External service HTTP error: %s"),
 	API_KEY_UNAVAILABLE("API_KEY_UNAVAILABLE", "API Key unavailable: %s"),
 	VALIDATION_ERROR("VALIDATION_ERROR", "%s"),
 	MISSING_HEADER("MISSING_HEADER", "%s"),
