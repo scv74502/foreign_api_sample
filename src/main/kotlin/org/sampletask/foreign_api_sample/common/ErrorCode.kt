@@ -13,6 +13,7 @@ enum class ErrorCode(val code: String, val messageTemplate: String) {
 	BAD_REQUEST("BAD_REQUEST", "%s"),
 	INTERNAL_ERROR("INTERNAL_ERROR", "%s"),
 	POLLING_TIMEOUT("POLLING_TIMEOUT", "폴링 최대 시간 초과: %s"),
+	RECOVERY_FAILED("RECOVERY_FAILED", "작업 복구 실패: %s"),
 	UNKNOWN_TASK_STATUS("UNKNOWN_TASK_STATUS", "Unknown TaskStatus code: %s"),
 	;
 
