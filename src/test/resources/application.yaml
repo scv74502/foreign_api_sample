@@ -2,6 +2,12 @@ spring:
   datasource:
     url: ${TEST_DATASOURCE_URL:jdbc:tc:mysql:8.0:///foreign_api_sample}
     driver-class-name: ${TEST_DATASOURCE_DRIVER:org.testcontainers.jdbc.ContainerDatabaseDriver}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
 
   jpa:
     hibernate:
