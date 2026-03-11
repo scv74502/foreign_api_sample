@@ -9,6 +9,7 @@ import io.github.resilience4j.ratelimiter.RateLimiterRegistry
 import org.sampletask.foreign_api_sample.task.client.request.ProcessRequest
 import org.sampletask.foreign_api_sample.task.client.response.JobStatusResponse
 import org.sampletask.foreign_api_sample.task.client.response.ProcessResponse
+import org.sampletask.foreign_api_sample.task.domain.RecoveryAction
 import org.sampletask.foreign_api_sample.task.exception.MockWorkerException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatusCode
@@ -87,11 +88,21 @@ class MockWorkerClient(
 
 	private fun toMockWorkerException(e: WebClientResponseException): MockWorkerException {
 		val statusCode = e.statusCode.value()
-		val isTransient = statusCode in listOf(429, 500, 502, 503, 504)
+		val recoveryAction = when (statusCode) {
+			404 -> RecoveryAction.REVERT_TO_PENDING
+			429, 500, 502, 503, 504 -> RecoveryAction.RETRY
+			else -> RecoveryAction.FAIL
+		}
 		return MockWorkerException(
 			upstreamHttpStatus = statusCode,
 			errorBody = e.responseBodyAsString,
-			isTransient = isTransient,
+			recoveryAction = recoveryAction,
+			retryAfterMs = parseRetryAfterMs(e),
 		)
+	}
+
+	private fun parseRetryAfterMs(e: WebClientResponseException): Long? {
+		val headerValue = e.headers["Retry-After"]?.firstOrNull() ?: return null
+		return headerValue.toLongOrNull()?.let { it * 1000 }
 	}
 }

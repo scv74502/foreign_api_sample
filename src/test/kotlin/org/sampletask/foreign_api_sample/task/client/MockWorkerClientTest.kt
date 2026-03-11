@@ -17,7 +17,9 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.sampletask.foreign_api_sample.task.domain.RecoveryAction
 import org.sampletask.foreign_api_sample.task.exception.MockWorkerException
 import org.springframework.web.reactive.function.client.WebClient
 
@@ -34,7 +36,6 @@ class MockWorkerClientTest {
 		val webClient = WebClient.builder().baseUrl(wireMockServer.baseUrl()).build()
 		apiKeyManager = ApiKeyManager(webClient, "test-candidate", "test@example.com")
 
-		// API Key 발급 stub
 		wireMockServer.stubFor(
 			post(urlEqualTo("/mock/auth/issue-key"))
 				.willReturn(
@@ -96,39 +97,186 @@ class MockWorkerClientTest {
 		}
 	}
 
-	@Test
-	fun `500_에러_시_MockWorkerException_발생_(transient)`() {
-		wireMockServer.stubFor(
-			post(urlEqualTo("/mock/process"))
-				.willReturn(aResponse().withStatus(500).withBody("Internal Server Error")),
-		)
+	@Nested
+	@Suppress("ClassName")
+	inner class 복구액션매핑 {
 
-		assertThatThrownBy {
-			kotlinx.coroutines.runBlocking { mockWorkerClient.submitProcess("https://example.com/image.png") }
+		@Test
+		fun `500_에러_시_RETRY`() {
+			wireMockServer.stubFor(
+				post(urlEqualTo("/mock/process"))
+					.willReturn(aResponse().withStatus(500).withBody("Internal Server Error")),
+			)
+
+			assertThatThrownBy {
+				kotlinx.coroutines.runBlocking { mockWorkerClient.submitProcess("https://example.com/image.png") }
+			}
+				.isInstanceOf(MockWorkerException::class.java)
+				.satisfies({
+					val ex = it as MockWorkerException
+					assertThat(ex.recoveryAction).isEqualTo(RecoveryAction.RETRY)
+					assertThat(ex.upstreamHttpStatus).isEqualTo(500)
+				})
 		}
-			.isInstanceOf(MockWorkerException::class.java)
-			.satisfies({
-				val ex = it as MockWorkerException
-				assertThat(ex.isTransient).isTrue()
-				assertThat(ex.upstreamHttpStatus).isEqualTo(500)
-			})
+
+		@Test
+		fun `429_에러_시_RETRY`() {
+			wireMockServer.stubFor(
+				post(urlEqualTo("/mock/process"))
+					.willReturn(aResponse().withStatus(429).withBody("Too Many Requests")),
+			)
+
+			assertThatThrownBy {
+				kotlinx.coroutines.runBlocking { mockWorkerClient.submitProcess("https://example.com/image.png") }
+			}
+				.isInstanceOf(MockWorkerException::class.java)
+				.satisfies({
+					val ex = it as MockWorkerException
+					assertThat(ex.recoveryAction).isEqualTo(RecoveryAction.RETRY)
+					assertThat(ex.upstreamHttpStatus).isEqualTo(429)
+				})
+		}
+
+		@Test
+		fun `503_에러_시_RETRY`() {
+			wireMockServer.stubFor(
+				post(urlEqualTo("/mock/process"))
+					.willReturn(aResponse().withStatus(503).withBody("Service Unavailable")),
+			)
+
+			assertThatThrownBy {
+				kotlinx.coroutines.runBlocking { mockWorkerClient.submitProcess("https://example.com/image.png") }
+			}
+				.isInstanceOf(MockWorkerException::class.java)
+				.satisfies({
+					val ex = it as MockWorkerException
+					assertThat(ex.recoveryAction).isEqualTo(RecoveryAction.RETRY)
+					assertThat(ex.upstreamHttpStatus).isEqualTo(503)
+				})
+		}
+
+		@Test
+		fun `400_에러_시_FAIL`() {
+			wireMockServer.stubFor(
+				post(urlEqualTo("/mock/process"))
+					.willReturn(aResponse().withStatus(400).withBody("Bad Request")),
+			)
+
+			assertThatThrownBy {
+				kotlinx.coroutines.runBlocking { mockWorkerClient.submitProcess("https://example.com/image.png") }
+			}
+				.isInstanceOf(MockWorkerException::class.java)
+				.satisfies({
+					val ex = it as MockWorkerException
+					assertThat(ex.recoveryAction).isEqualTo(RecoveryAction.FAIL)
+					assertThat(ex.upstreamHttpStatus).isEqualTo(400)
+				})
+		}
+
+		@Test
+		fun `422_에러_시_FAIL`() {
+			wireMockServer.stubFor(
+				post(urlEqualTo("/mock/process"))
+					.willReturn(aResponse().withStatus(422).withBody("Unprocessable Entity")),
+			)
+
+			assertThatThrownBy {
+				kotlinx.coroutines.runBlocking { mockWorkerClient.submitProcess("https://example.com/image.png") }
+			}
+				.isInstanceOf(MockWorkerException::class.java)
+				.satisfies({
+					val ex = it as MockWorkerException
+					assertThat(ex.recoveryAction).isEqualTo(RecoveryAction.FAIL)
+					assertThat(ex.upstreamHttpStatus).isEqualTo(422)
+				})
+		}
+
+		@Test
+		fun `404_에러_시_REVERT_TO_PENDING`() {
+			wireMockServer.stubFor(
+				get(urlEqualTo("/mock/process/job-404"))
+					.willReturn(aResponse().withStatus(404).withBody("Not Found")),
+			)
+
+			assertThatThrownBy {
+				kotlinx.coroutines.runBlocking { mockWorkerClient.getJobStatus("job-404") }
+			}
+				.isInstanceOf(MockWorkerException::class.java)
+				.satisfies({
+					val ex = it as MockWorkerException
+					assertThat(ex.recoveryAction).isEqualTo(RecoveryAction.REVERT_TO_PENDING)
+					assertThat(ex.upstreamHttpStatus).isEqualTo(404)
+				})
+		}
 	}
 
-	@Test
-	fun `400_에러_시_MockWorkerException_발생_(permanent)`() {
-		wireMockServer.stubFor(
-			post(urlEqualTo("/mock/process"))
-				.willReturn(aResponse().withStatus(400).withBody("Bad Request")),
-		)
+	@Nested
+	@Suppress("ClassName")
+	inner class Retry_After_헤더_파싱 {
 
-		assertThatThrownBy {
-			kotlinx.coroutines.runBlocking { mockWorkerClient.submitProcess("https://example.com/image.png") }
+		@Test
+		fun `Retry_After_헤더가_있으면_retryAfterMs_설정`() {
+			wireMockServer.stubFor(
+				post(urlEqualTo("/mock/process"))
+					.willReturn(
+						aResponse()
+							.withStatus(429)
+							.withHeader("Retry-After", "5")
+							.withBody("Too Many Requests"),
+					),
+			)
+
+			assertThatThrownBy {
+				kotlinx.coroutines.runBlocking { mockWorkerClient.submitProcess("https://example.com/image.png") }
+			}
+				.isInstanceOf(MockWorkerException::class.java)
+				.satisfies({
+					val ex = it as MockWorkerException
+					assertThat(ex.retryAfterMs).isEqualTo(5000L)
+				})
 		}
-			.isInstanceOf(MockWorkerException::class.java)
-			.satisfies({
-				val ex = it as MockWorkerException
-				assertThat(ex.isTransient).isFalse()
-				assertThat(ex.upstreamHttpStatus).isEqualTo(400)
-			})
+
+		@Test
+		fun `Retry_After_헤더가_없으면_retryAfterMs_null`() {
+			wireMockServer.stubFor(
+				post(urlEqualTo("/mock/process"))
+					.willReturn(
+						aResponse()
+							.withStatus(429)
+							.withBody("Too Many Requests"),
+					),
+			)
+
+			assertThatThrownBy {
+				kotlinx.coroutines.runBlocking { mockWorkerClient.submitProcess("https://example.com/image.png") }
+			}
+				.isInstanceOf(MockWorkerException::class.java)
+				.satisfies({
+					val ex = it as MockWorkerException
+					assertThat(ex.retryAfterMs).isNull()
+				})
+		}
+
+		@Test
+		fun `Retry_After_헤더가_비정수면_retryAfterMs_null`() {
+			wireMockServer.stubFor(
+				post(urlEqualTo("/mock/process"))
+					.willReturn(
+						aResponse()
+							.withStatus(429)
+							.withHeader("Retry-After", "invalid")
+							.withBody("Too Many Requests"),
+					),
+			)
+
+			assertThatThrownBy {
+				kotlinx.coroutines.runBlocking { mockWorkerClient.submitProcess("https://example.com/image.png") }
+			}
+				.isInstanceOf(MockWorkerException::class.java)
+				.satisfies({
+					val ex = it as MockWorkerException
+					assertThat(ex.retryAfterMs).isNull()
+				})
+		}
 	}
 }

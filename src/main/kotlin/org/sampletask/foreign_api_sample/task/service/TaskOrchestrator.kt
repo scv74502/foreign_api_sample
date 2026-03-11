@@ -5,6 +5,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.sampletask.foreign_api_sample.common.ErrorCode
 import org.sampletask.foreign_api_sample.task.client.MockWorkerClient
+import org.sampletask.foreign_api_sample.task.domain.RecoveryAction
 import org.sampletask.foreign_api_sample.task.domain.Task
 import org.sampletask.foreign_api_sample.task.domain.TaskStatus
 import org.sampletask.foreign_api_sample.task.exception.MockWorkerException
@@ -23,8 +24,9 @@ class TaskOrchestrator(
 ) {
 	private val log = LoggerFactory.getLogger(javaClass)
 
-	fun submitAsync(task: Task) {
+	fun submitAsync(task: Task, delayMs: Long? = null) {
 		scope.launch {
+			if (delayMs != null) delay(delayMs)
 			processTask(task)
 		}
 	}
@@ -83,15 +85,6 @@ class TaskOrchestrator(
 					}
 				}
 			} catch (e: MockWorkerException) {
-				if (e.upstreamHttpStatus == 404) {
-					log.warn("작업 {} 의 외부 Job {} 이 404 반환 - PENDING 복귀", taskId, jobId)
-					val current = taskService.getTask(taskId)
-					current.externalJobId = null
-					current.transitionTo(TaskStatus.PENDING)
-					val updated = taskService.updateTask(current)
-					submitAsync(updated)
-					return
-				}
 				handleError(taskId, e)
 				return
 			}
@@ -99,18 +92,41 @@ class TaskOrchestrator(
 	}
 
 	private fun handleError(taskId: Long, e: MockWorkerException) {
-		var current = taskService.getTask(taskId)
-		if (e.isTransient && current.retryCount < maxRetryCount) {
-			current.retryCount++
-			current.transitionTo(TaskStatus.FAILED)
-			current = taskService.updateTask(current)
-			log.warn("작업 {} 일시적 오류 (재시도 {}/{}): {}", taskId, current.retryCount, maxRetryCount, e.message)
+		when (e.recoveryAction) {
+			RecoveryAction.RETRY -> {
+				val current = taskService.getTask(taskId)
+				if (current.retryCount < maxRetryCount) {
+					current.retryCount++
+					current.transitionTo(TaskStatus.FAILED)
+					val updated = taskService.updateTask(current)
+					log.warn("작업 {} 일시적 오류 (재시도 {}/{}): {}", taskId, updated.retryCount, maxRetryCount, e.message)
 
-			current.transitionTo(TaskStatus.PENDING)
-			current = taskService.updateTask(current)
-			submitAsync(current)
-		} else {
-			failTask(taskId, "HTTP_${e.upstreamHttpStatus}", e.errorBody)
+					updated.transitionTo(TaskStatus.PENDING)
+					val pending = taskService.updateTask(updated)
+					submitAsync(pending)
+				} else {
+					failTask(
+						taskId,
+						ErrorCode.EXTERNAL_HTTP_ERROR.code,
+						ErrorCode.EXTERNAL_HTTP_ERROR.message(e.upstreamHttpStatus),
+					)
+				}
+			}
+			RecoveryAction.REVERT_TO_PENDING -> {
+				val current = taskService.getTask(taskId)
+				current.externalJobId = null
+				current.transitionTo(TaskStatus.PENDING)
+				val updated = taskService.updateTask(current)
+				submitAsync(updated)
+				log.warn("작업 {} 404 응답 - PENDING 복귀", taskId)
+			}
+			RecoveryAction.FAIL -> {
+				failTask(
+					taskId,
+					ErrorCode.EXTERNAL_HTTP_ERROR.code,
+					ErrorCode.EXTERNAL_HTTP_ERROR.message(e.upstreamHttpStatus),
+				)
+			}
 		}
 	}
 

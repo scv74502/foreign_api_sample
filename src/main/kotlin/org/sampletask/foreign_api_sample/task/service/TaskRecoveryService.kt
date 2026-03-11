@@ -1,7 +1,10 @@
 package org.sampletask.foreign_api_sample.task.service
 
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.sampletask.foreign_api_sample.task.client.MockWorkerClient
+import org.sampletask.foreign_api_sample.task.domain.RecoveryAction
+import org.sampletask.foreign_api_sample.task.domain.Task
 import org.sampletask.foreign_api_sample.task.domain.TaskStatus
 import org.sampletask.foreign_api_sample.task.entity.mapper.TaskMapper
 import org.sampletask.foreign_api_sample.task.exception.MockWorkerException
@@ -17,6 +20,7 @@ class TaskRecoveryService(
 	private val taskService: TaskService,
 	private val taskOrchestrator: TaskOrchestrator,
 	private val mockWorkerClient: MockWorkerClient,
+	private val scope: CoroutineScope,
 ) {
 	private val log = LoggerFactory.getLogger(javaClass)
 
@@ -48,10 +52,10 @@ class TaskRecoveryService(
 		}
 	}
 
-	private fun recoverProcessingTask(task: org.sampletask.foreign_api_sample.task.domain.Task) {
+	private fun recoverProcessingTask(task: Task) {
 		if (task.externalJobId != null) {
-			try {
-				runBlocking {
+			scope.launch {
+				try {
 					val status = mockWorkerClient.getJobStatus(task.externalJobId!!)
 					when (status.status) {
 						"COMPLETED" -> {
@@ -72,21 +76,21 @@ class TaskRecoveryService(
 							taskOrchestrator.submitAsync(task)
 						}
 					}
-				}
-			} catch (e: MockWorkerException) {
-				if (e.upstreamHttpStatus == 404) {
-					log.warn("작업 {} 의 외부 Job 404 - PENDING 복귀", task.id)
-					task.externalJobId = null
-					task.transitionTo(TaskStatus.PENDING)
-					taskService.updateTask(task)
+				} catch (e: MockWorkerException) {
+					if (e.recoveryAction == RecoveryAction.REVERT_TO_PENDING) {
+						log.warn("작업 {} 의 외부 Job 404 - PENDING 복귀", task.id)
+						task.externalJobId = null
+						task.transitionTo(TaskStatus.PENDING)
+						taskService.updateTask(task)
+						taskOrchestrator.submitAsync(task)
+					} else {
+						log.error("작업 {} 복구 중 오류: {}", task.id, e.message)
+						taskOrchestrator.submitAsync(task)
+					}
+				} catch (e: Exception) {
+					log.error("작업 {} 복구 중 예상치 못한 오류: {}", task.id, e.message, e)
 					taskOrchestrator.submitAsync(task)
-				} else {
-					log.error("작업 {} 복구 중 오류: {}", task.id, e.message)
-					taskOrchestrator.submitAsync(task)
 				}
-			} catch (e: Exception) {
-				log.error("작업 {} 복구 중 예상치 못한 오류: {}", task.id, e.message, e)
-				taskOrchestrator.submitAsync(task)
 			}
 		} else {
 			log.info("PROCESSING 작업 {} 에 jobId 없음 - PENDING 복귀", task.id)
