@@ -42,6 +42,9 @@ dependencies {
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testImplementation("org.testcontainers:junit-jupiter")
 	testImplementation("org.testcontainers:mysql")
+	testImplementation("org.wiremock:wiremock-standalone:3.10.0")
+	testImplementation("org.awaitility:awaitility-kotlin:4.2.2")
+	testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
