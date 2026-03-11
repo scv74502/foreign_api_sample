@@ -55,18 +55,6 @@ resilience4j:
         sliding-window-size: 10
         minimum-number-of-calls: 5
 
-  retry:
-    instances:
-      mock-worker:
-        max-attempts: 3
-        wait-duration:
-          seconds: 60
-        enable-exponential-backoff: true
-        exponential-backoff-multiplier: 3
-        exponential-max-wait-duration:
-          seconds: 600
-        enable-randomized-wait: true
-
   ratelimiter:
     instances:
       mock-worker:
