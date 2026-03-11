@@ -33,6 +33,9 @@ mock-worker:
     connect-ms: 5000
     read-ms: 10000
     write-ms: 10000
+  auth:
+    candidate-name: ${MOCK_WORKER_CANDIDATE_NAME}
+    email: ${MOCK_WORKER_EMAIL}
 
 resilience4j:
   circuitbreaker:
