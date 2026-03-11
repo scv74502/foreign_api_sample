@@ -1,5 +1,7 @@
 package org.sampletask.foreign_api_sample.task.domain
 
+import org.sampletask.foreign_api_sample.common.ErrorCode
+
 enum class TaskStatus(val code: Int) {
 	PENDING(0), // 요청 수신 완료, 외부 서비스에 미전달
 	PROCESSING(1), // 외부 서비스에 전달됨, 작업 ID 보유
@@ -11,7 +13,7 @@ enum class TaskStatus(val code: Int) {
 	fun canTransitionTo(target: TaskStatus): Boolean {
 		return when (this) {
 			PENDING -> target in listOf(PROCESSING, CANCELLED)
-			PROCESSING -> target in listOf(COMPLETED, FAILED, CANCELLED)
+			PROCESSING -> target in listOf(COMPLETED, FAILED, CANCELLED, PENDING) // PENDING 복귀는 recovery 전용
 			FAILED -> target == PENDING // 재시도 시 PENDING으로 복귀
 			COMPLETED, CANCELLED -> false
 		}
@@ -22,7 +24,7 @@ enum class TaskStatus(val code: Int) {
 
 		fun fromCode(code: Int): TaskStatus {
 			return CODE_MAP[code]
-				?: throw IllegalArgumentException("Unknown TaskStatus code: $code")
+				?: throw IllegalArgumentException(ErrorCode.UNKNOWN_TASK_STATUS.message(code))
 		}
 	}
 }

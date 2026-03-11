@@ -1,0 +1,131 @@
+package org.sampletask.foreign_api_sample.task.service
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import org.sampletask.foreign_api_sample.common.ErrorCode
+import org.sampletask.foreign_api_sample.task.client.MockWorkerClient
+import org.sampletask.foreign_api_sample.task.domain.Task
+import org.sampletask.foreign_api_sample.task.domain.TaskStatus
+import org.sampletask.foreign_api_sample.task.exception.MockWorkerException
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.stereotype.Component
+
+@Component
+class TaskOrchestrator(
+	private val taskService: TaskService,
+	private val mockWorkerClient: MockWorkerClient,
+	private val scope: CoroutineScope,
+	@Value("\${task.max-retry-count:3}") private val maxRetryCount: Int,
+	@Value("\${task.polling.initial-interval-ms:2000}") private val initialIntervalMs: Long,
+	@Value("\${task.polling.max-interval-ms:10000}") private val maxIntervalMs: Long,
+) {
+	private val log = LoggerFactory.getLogger(javaClass)
+
+	fun submitAsync(task: Task) {
+		scope.launch {
+			processTask(task)
+		}
+	}
+
+	suspend fun processTask(task: Task) {
+		val taskId = task.id
+		try {
+			var current = taskService.getTask(taskId)
+			if (current.status != TaskStatus.PENDING) {
+				log.debug("작업 {} 이미 {} 상태 - 처리 건너뜀", taskId, current.status)
+				return
+			}
+
+			current.transitionTo(TaskStatus.PROCESSING)
+			current = taskService.updateTask(current)
+
+			val processResponse = mockWorkerClient.submitProcess(current.imageUrl)
+			current.externalJobId = processResponse.jobId
+			current = taskService.updateTask(current)
+
+			pollForResult(current)
+		} catch (e: MockWorkerException) {
+			handleError(taskId, e)
+		} catch (e: Exception) {
+			log.error("작업 {} 처리 중 예상치 못한 오류: {}", taskId, e.message, e)
+			failTask(taskId, ErrorCode.INTERNAL_ERROR.code, e.message)
+		}
+	}
+
+	private suspend fun pollForResult(task: Task) {
+		val jobId = task.externalJobId ?: return
+		val taskId = task.id
+		var intervalMs = initialIntervalMs
+
+		while (true) {
+			delay(intervalMs)
+
+			try {
+				val status = mockWorkerClient.getJobStatus(jobId)
+
+				when (status.status) {
+					"COMPLETED" -> {
+						val current = taskService.getTask(taskId)
+						current.result = status.result
+						current.transitionTo(TaskStatus.COMPLETED)
+						taskService.updateTask(current)
+						log.info("작업 {} 완료", taskId)
+						return
+					}
+					"FAILED" -> {
+						failTask(taskId, status.errorCode, status.errorMessage)
+						return
+					}
+					else -> {
+						intervalMs = (intervalMs * 2).coerceAtMost(maxIntervalMs)
+					}
+				}
+			} catch (e: MockWorkerException) {
+				if (e.upstreamHttpStatus == 404) {
+					log.warn("작업 {} 의 외부 Job {} 이 404 반환 - PENDING 복귀", taskId, jobId)
+					val current = taskService.getTask(taskId)
+					current.externalJobId = null
+					current.transitionTo(TaskStatus.PENDING)
+					val updated = taskService.updateTask(current)
+					submitAsync(updated)
+					return
+				}
+				handleError(taskId, e)
+				return
+			}
+		}
+	}
+
+	private fun handleError(taskId: Long, e: MockWorkerException) {
+		var current = taskService.getTask(taskId)
+		if (e.isTransient && current.retryCount < maxRetryCount) {
+			current.retryCount++
+			current.transitionTo(TaskStatus.FAILED)
+			current = taskService.updateTask(current)
+			log.warn("작업 {} 일시적 오류 (재시도 {}/{}): {}", taskId, current.retryCount, maxRetryCount, e.message)
+
+			current.transitionTo(TaskStatus.PENDING)
+			current = taskService.updateTask(current)
+			submitAsync(current)
+		} else {
+			failTask(taskId, "HTTP_${e.upstreamHttpStatus}", e.errorBody)
+		}
+	}
+
+	private fun failTask(taskId: Long, errorCode: String?, errorMessage: String?) {
+		try {
+			val current = taskService.getTask(taskId)
+			current.errorCode = errorCode
+			current.errorMessage = errorMessage
+			if (current.status != TaskStatus.FAILED) {
+				current.transitionTo(TaskStatus.FAILED)
+			}
+			taskService.updateTask(current)
+			log.error("작업 {} 최종 실패: {} - {}", taskId, errorCode, errorMessage)
+		} catch (e: Exception) {
+			log.error("작업 {} 실패 상태 저장 중 오류: {}", taskId, e.message)
+		}
+	}
+}

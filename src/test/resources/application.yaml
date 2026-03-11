@@ -18,3 +18,12 @@ spring:
 
 mock-worker:
   base-url: http://localhost:8089
+  auth:
+    candidate-name: test-candidate
+    email: test@example.com
+
+task:
+  max-retry-count: 3
+  polling:
+    initial-interval-ms: 100
+    max-interval-ms: 500
