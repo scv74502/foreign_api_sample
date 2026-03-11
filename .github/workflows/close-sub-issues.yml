@@ -1,0 +1,34 @@
+name: Close Sub-Issues
+
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  close-sub-issues:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Close tracked sub-issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            const regex = /- \[[ x]\] #(\d+)/g;
+            let match;
+
+            while ((match = regex.exec(body)) !== null) {
+              const issueNumber = parseInt(match[1]);
+              try {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  state: 'closed'
+                });
+                console.log(`Closed #${issueNumber}`);
+              } catch (error) {
+                console.log(`Failed to close #${issueNumber}: ${error.message}`);
+              }
+            }
