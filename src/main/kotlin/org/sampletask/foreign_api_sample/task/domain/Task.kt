@@ -1,5 +1,6 @@
 package org.sampletask.foreign_api_sample.task.domain
 
+import org.sampletask.foreign_api_sample.task.exception.InvalidTaskStateException
 import java.time.Instant
 
 class Task(
@@ -18,7 +19,7 @@ class Task(
 ) {
 	fun transitionTo(taskStatus: TaskStatus) {
 		if (!status.canTransitionTo(taskStatus)) {
-			throw IllegalStateException("Cannot transition from $status to $taskStatus")
+			throw InvalidTaskStateException(status, taskStatus)
 		}
 		status = taskStatus
 		updatedAt = Instant.now()
