@@ -58,6 +58,7 @@ class TaskOrchestratorTest {
 				maxIntervalMs = 50,
 				multiplier = 2.0,
 				maxConcurrentPolling = 2,
+				maxTotalDurationMs = 500,
 			)
 	}
 
@@ -223,6 +224,30 @@ class TaskOrchestratorTest {
 				assertThat(task.status).isEqualTo(TaskStatus.COMPLETED)
 				assertThat(task.result).isEqualTo("result-data")
 				verify(mockWorkerClient, times(3)).getJobStatus("job-123")
+			}
+		}
+	}
+
+	@Nested
+	@Suppress("ClassName")
+	inner class 폴링_타임아웃 {
+
+		@Test
+		fun `최대_폴링_시간_초과_시_FAILED_전이`() {
+			runTest {
+				val task = createTask()
+
+				whenever(taskService.getTask(1L)).thenReturn(task)
+				whenever(taskService.updateTask(any())).thenAnswer { it.arguments[0] as Task }
+				whenever(mockWorkerClient.submitProcess(any())).thenReturn(ProcessResponse("job-123"))
+				whenever(mockWorkerClient.getJobStatus("job-123")).thenReturn(
+					JobStatusResponse(jobId = "job-123", status = "PROCESSING"),
+				)
+
+				orchestrator.processTask(task)
+
+				assertThat(task.status).isEqualTo(TaskStatus.FAILED)
+				assertThat(task.errorCode).isEqualTo("POLLING_TIMEOUT")
 			}
 		}
 	}

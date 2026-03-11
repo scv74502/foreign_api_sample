@@ -27,3 +27,4 @@ task:
   polling:
     initial-interval-ms: 100
     max-interval-ms: 500
+    max-total-duration-ms: 5000

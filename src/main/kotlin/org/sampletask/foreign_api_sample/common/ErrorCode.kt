@@ -11,6 +11,7 @@ enum class ErrorCode(val code: String, val messageTemplate: String) {
 	MISSING_HEADER("MISSING_HEADER", "%s"),
 	BAD_REQUEST("BAD_REQUEST", "%s"),
 	INTERNAL_ERROR("INTERNAL_ERROR", "%s"),
+	POLLING_TIMEOUT("POLLING_TIMEOUT", "폴링 최대 시간 초과: %s"),
 	UNKNOWN_TASK_STATUS("UNKNOWN_TASK_STATUS", "Unknown TaskStatus code: %s"),
 	;
 
