@@ -2,6 +2,7 @@ package org.sampletask.foreign_api_sample.task.service
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.sampletask.foreign_api_sample.common.ErrorCode
 import org.sampletask.foreign_api_sample.task.client.MockWorkerClient
 import org.sampletask.foreign_api_sample.task.domain.RecoveryAction
 import org.sampletask.foreign_api_sample.task.domain.Task
@@ -52,6 +53,17 @@ class TaskRecoveryService(
 		}
 	}
 
+	private fun failTask(task: Task, errorMessage: String?) {
+		try {
+			task.errorCode = ErrorCode.RECOVERY_FAILED.code
+			task.errorMessage = errorMessage
+			task.transitionTo(TaskStatus.FAILED)
+			taskService.updateTask(task)
+		} catch (updateEx: Exception) {
+			log.error("작업 {} FAILED 전이 실패", task.id, updateEx)
+		}
+	}
+
 	private fun recoverProcessingTask(task: Task) {
 		if (task.externalJobId != null) {
 			scope.launch {
@@ -84,12 +96,12 @@ class TaskRecoveryService(
 						taskService.updateTask(task)
 						taskOrchestrator.submitAsync(task)
 					} else {
-						log.error("작업 {} 복구 중 오류: {}", task.id, e.message)
-						taskOrchestrator.submitAsync(task)
+						log.error("작업 {} 복구 실패 - FAILED 전이", task.id, e)
+						failTask(task, e.message)
 					}
 				} catch (e: Exception) {
-					log.error("작업 {} 복구 중 예상치 못한 오류: {}", task.id, e.message, e)
-					taskOrchestrator.submitAsync(task)
+					log.error("작업 {} 복구 실패 - FAILED 전이", task.id, e)
+					failTask(task, e.message)
 				}
 			}
 		} else {
