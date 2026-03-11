@@ -11,6 +11,29 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: foreign_api_sample_app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
+      SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL}
+      MOCK_WORKER_BASE_URL: ${MOCK_WORKER_BASE_URL}
+      MOCK_WORKER_CANDIDATE_NAME: ${MOCK_WORKER_CANDIDATE_NAME}
+      MOCK_WORKER_EMAIL: ${MOCK_WORKER_EMAIL}
+    depends_on:
+      mysql:
+        condition: service_healthy
 
 volumes:
   mysql_data:
