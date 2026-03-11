@@ -1,5 +1,6 @@
 package org.sampletask.foreign_api_sample.task.client
 
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.sampletask.foreign_api_sample.task.client.request.IssueKeyRequest
@@ -12,6 +13,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.awaitBody
+import kotlin.math.pow
 
 @Component
 class ApiKeyManager(
@@ -62,6 +64,7 @@ class ApiKeyManager(
 							"API Key 재발급 실패 (${MAX_REISSUE_ATTEMPTS}회 시도): ${e.message}",
 						)
 					}
+					delay(INITIAL_BACKOFF_MS * 3.0.pow(attempt).toLong())
 				}
 			}
 		}
@@ -81,5 +84,6 @@ class ApiKeyManager(
 
 	companion object {
 		private const val MAX_REISSUE_ATTEMPTS = 3
+		private const val INITIAL_BACKOFF_MS = 1000L
 	}
 }

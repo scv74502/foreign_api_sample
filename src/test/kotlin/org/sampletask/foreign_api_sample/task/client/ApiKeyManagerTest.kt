@@ -82,7 +82,7 @@ class ApiKeyManagerTest {
 		)
 
 		assertThatThrownBy {
-			kotlinx.coroutines.runBlocking { apiKeyManager.reissueApiKey() }
+			runTest { apiKeyManager.reissueApiKey() }
 		}.isInstanceOf(ApiKeyUnavailableException::class.java)
 	}
 
