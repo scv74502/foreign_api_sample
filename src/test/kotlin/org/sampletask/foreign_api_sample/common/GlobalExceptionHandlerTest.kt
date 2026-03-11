@@ -39,7 +39,10 @@ class GlobalExceptionHandlerTest {
 
 	@Test
 	fun `MockWorkerException은_502_반환`() {
-		val response = handler.handleSystemException(MockWorkerException(500, "error", true))
+		val response =
+			handler.handleSystemException(
+				MockWorkerException(500, "error", org.sampletask.foreign_api_sample.task.domain.RecoveryAction.RETRY),
+			)
 		assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_GATEWAY)
 		assertThat(response.body?.code).isEqualTo("EXTERNAL_SERVICE_ERROR")
 	}
