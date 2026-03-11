@@ -23,3 +23,7 @@ spring:
 
 mock-worker:
   base-url: ${MOCK_WORKER_BASE_URL}
+  timeout:
+    connect-ms: 5000
+    read-ms: 10000
+    write-ms: 10000
