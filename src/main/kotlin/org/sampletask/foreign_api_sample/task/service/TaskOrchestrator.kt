@@ -3,6 +3,7 @@ package org.sampletask.foreign_api_sample.task.service
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.sampletask.foreign_api_sample.common.ErrorCode
 import org.sampletask.foreign_api_sample.task.client.MockWorkerClient
 import org.sampletask.foreign_api_sample.task.domain.Task
 import org.sampletask.foreign_api_sample.task.domain.TaskStatus
@@ -49,7 +50,7 @@ class TaskOrchestrator(
 			handleError(taskId, e)
 		} catch (e: Exception) {
 			log.error("작업 {} 처리 중 예상치 못한 오류: {}", taskId, e.message, e)
-			failTask(taskId, "INTERNAL_ERROR", e.message)
+			failTask(taskId, ErrorCode.INTERNAL_ERROR.code, e.message)
 		}
 	}
 

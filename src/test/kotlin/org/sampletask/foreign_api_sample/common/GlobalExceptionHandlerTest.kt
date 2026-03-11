@@ -1,4 +1,4 @@
-package org.sampletask.foreign_api_sample.task.controller
+package org.sampletask.foreign_api_sample.common
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test

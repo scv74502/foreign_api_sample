@@ -1,5 +1,7 @@
 package org.sampletask.foreign_api_sample.task.domain
 
+import org.sampletask.foreign_api_sample.common.ErrorCode
+
 enum class TaskStatus(val code: Int) {
 	PENDING(0), // 요청 수신 완료, 외부 서비스에 미전달
 	PROCESSING(1), // 외부 서비스에 전달됨, 작업 ID 보유
@@ -22,7 +24,7 @@ enum class TaskStatus(val code: Int) {
 
 		fun fromCode(code: Int): TaskStatus {
 			return CODE_MAP[code]
-				?: throw IllegalArgumentException("Unknown TaskStatus code: $code")
+				?: throw IllegalArgumentException(ErrorCode.UNKNOWN_TASK_STATUS.message(code))
 		}
 	}
 }

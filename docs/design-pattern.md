@@ -34,6 +34,10 @@
 ```
 org.sampletask.foreign_api_sample/
     ForeignApiSampleApplication.kt       # 루트: 앱 진입점
+    common/                               # 도메인 횡단 공통 클래스
+        ErrorCode.kt                      # 에러 코드/메시지 enum
+        GlobalExceptionHandler.kt         # 전역 예외 처리
+        dto/                              # 공통 DTO (ErrorResponse 등)
     config/                               # 공통 설정
     <도메인>/                              # 도메인별 패키지 (예: task)
         domain/                           # POJO, VO, enum (순수 도메인, JPA 의존 없음)
@@ -46,10 +50,17 @@ org.sampletask.foreign_api_sample/
         exception/                        # 도메인 예외
 ```
 
+## 에러 메시지/코드 관리
+- 에러 코드와 메시지 템플릿은 `ErrorCode` enum으로 중앙 관리
+- Exception이나 Handler에서 문자열 직접 사용 금지
+- `ErrorCode.message(...)` 메서드로 메시지 생성
+
 ## API 우선 개발
 - springdoc 어노테이션으로 API 인터페이스 정의 먼저 작성
 - `@Operation`, `@ApiResponse`, `@Schema` 등으로 문서화
 - API 인터페이스 정의 후 컨트롤러 구현
+- `TaskApi` 인터페이스: Swagger 어노테이션 + 메서드 시그니처
+- `TaskController` 구현체: 비즈니스 로직만 포함
 
 ## 데이터베이스
 - Flyway 마이그레이션 기반 스키마 관리
