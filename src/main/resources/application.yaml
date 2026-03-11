@@ -45,6 +45,9 @@ mock-worker:
 
 task:
   max-retry-count: 3
+  idempotency:
+    expiry-hours: 24
+    cleanup-cron: "0 0 3 * * *"
   polling:
     initial-interval-ms: 2000
     max-interval-ms: 10000
