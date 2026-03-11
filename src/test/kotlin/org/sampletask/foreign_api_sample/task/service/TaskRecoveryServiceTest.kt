@@ -6,6 +6,7 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -37,7 +38,7 @@ class TaskRecoveryServiceTest {
 
 		recoveryService.recoverTasks()
 
-		verify(taskOrchestrator, never()).submitAsync(any())
+		verify(taskOrchestrator, never()).submitAsync(any(), anyOrNull())
 	}
 
 	@Test
@@ -55,7 +56,7 @@ class TaskRecoveryServiceTest {
 
 		recoveryService.recoverTasks()
 
-		verify(taskOrchestrator).submitAsync(any())
+		verify(taskOrchestrator).submitAsync(any(), anyOrNull())
 	}
 
 	@Test
@@ -76,6 +77,6 @@ class TaskRecoveryServiceTest {
 		recoveryService.recoverTasks()
 
 		verify(taskService).updateTask(any())
-		verify(taskOrchestrator).submitAsync(any())
+		verify(taskOrchestrator).submitAsync(any(), anyOrNull())
 	}
 }

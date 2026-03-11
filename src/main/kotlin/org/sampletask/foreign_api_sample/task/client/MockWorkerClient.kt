@@ -97,6 +97,12 @@ class MockWorkerClient(
 			upstreamHttpStatus = statusCode,
 			errorBody = e.responseBodyAsString,
 			recoveryAction = recoveryAction,
+			retryAfterMs = parseRetryAfterMs(e),
 		)
+	}
+
+	private fun parseRetryAfterMs(e: WebClientResponseException): Long? {
+		val headerValue = e.headers["Retry-After"]?.firstOrNull() ?: return null
+		return headerValue.toLongOrNull()?.let { it * 1000 }
 	}
 }

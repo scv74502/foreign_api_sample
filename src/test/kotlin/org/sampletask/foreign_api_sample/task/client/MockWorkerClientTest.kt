@@ -209,4 +209,74 @@ class MockWorkerClientTest {
 				})
 		}
 	}
+
+	@Nested
+	@Suppress("ClassName")
+	inner class Retry_After_헤더_파싱 {
+
+		@Test
+		fun `Retry_After_헤더가_있으면_retryAfterMs_설정`() {
+			wireMockServer.stubFor(
+				post(urlEqualTo("/mock/process"))
+					.willReturn(
+						aResponse()
+							.withStatus(429)
+							.withHeader("Retry-After", "5")
+							.withBody("Too Many Requests"),
+					),
+			)
+
+			assertThatThrownBy {
+				kotlinx.coroutines.runBlocking { mockWorkerClient.submitProcess("https://example.com/image.png") }
+			}
+				.isInstanceOf(MockWorkerException::class.java)
+				.satisfies({
+					val ex = it as MockWorkerException
+					assertThat(ex.retryAfterMs).isEqualTo(5000L)
+				})
+		}
+
+		@Test
+		fun `Retry_After_헤더가_없으면_retryAfterMs_null`() {
+			wireMockServer.stubFor(
+				post(urlEqualTo("/mock/process"))
+					.willReturn(
+						aResponse()
+							.withStatus(429)
+							.withBody("Too Many Requests"),
+					),
+			)
+
+			assertThatThrownBy {
+				kotlinx.coroutines.runBlocking { mockWorkerClient.submitProcess("https://example.com/image.png") }
+			}
+				.isInstanceOf(MockWorkerException::class.java)
+				.satisfies({
+					val ex = it as MockWorkerException
+					assertThat(ex.retryAfterMs).isNull()
+				})
+		}
+
+		@Test
+		fun `Retry_After_헤더가_비정수면_retryAfterMs_null`() {
+			wireMockServer.stubFor(
+				post(urlEqualTo("/mock/process"))
+					.willReturn(
+						aResponse()
+							.withStatus(429)
+							.withHeader("Retry-After", "invalid")
+							.withBody("Too Many Requests"),
+					),
+			)
+
+			assertThatThrownBy {
+				kotlinx.coroutines.runBlocking { mockWorkerClient.submitProcess("https://example.com/image.png") }
+			}
+				.isInstanceOf(MockWorkerException::class.java)
+				.satisfies({
+					val ex = it as MockWorkerException
+					assertThat(ex.retryAfterMs).isNull()
+				})
+		}
+	}
 }

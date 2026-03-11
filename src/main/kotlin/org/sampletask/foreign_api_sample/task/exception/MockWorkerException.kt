@@ -9,6 +9,7 @@ class MockWorkerException(
 	val upstreamHttpStatus: Int,
 	val errorBody: String?,
 	val recoveryAction: RecoveryAction,
+	val retryAfterMs: Long? = null,
 ) : SystemException(
 	httpStatus = HttpStatus.BAD_GATEWAY,
 	errorCode = ErrorCode.EXTERNAL_SERVICE_ERROR,
