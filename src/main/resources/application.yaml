@@ -1,6 +1,12 @@
+server:
+  shutdown: graceful
+
 spring:
   application:
     name: foreign_api_sample
+
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
   datasource:
     url: ${SPRING_DATASOURCE_URL}
@@ -23,3 +29,45 @@ spring:
 
 mock-worker:
   base-url: ${MOCK_WORKER_BASE_URL}
+  timeout:
+    connect-ms: 5000
+    read-ms: 10000
+    write-ms: 10000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      mock-worker:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state:
+          seconds: 30
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+
+  retry:
+    instances:
+      mock-worker:
+        max-attempts: 3
+        wait-duration:
+          seconds: 60
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 3
+        exponential-max-wait-duration:
+          seconds: 600
+        enable-randomized-wait: true
+
+  ratelimiter:
+    instances:
+      mock-worker:
+        limit-for-period: 10
+        limit-refresh-period:
+          seconds: 1
+        timeout-duration:
+          seconds: 5
+
+  bulkhead:
+    instances:
+      mock-worker:
+        max-concurrent-calls: 10
+        max-wait-duration:
+          seconds: 5
