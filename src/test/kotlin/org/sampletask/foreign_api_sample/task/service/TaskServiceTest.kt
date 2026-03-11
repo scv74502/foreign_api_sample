@@ -11,6 +11,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.sampletask.foreign_api_sample.task.domain.TaskStatus
 import org.sampletask.foreign_api_sample.task.entity.TaskEntity
+import org.sampletask.foreign_api_sample.task.exception.IdempotencyKeyConflictException
 import org.sampletask.foreign_api_sample.task.exception.TaskNotFoundException
 import org.sampletask.foreign_api_sample.task.repository.TaskRepository
 import org.springframework.data.domain.PageImpl
@@ -63,6 +64,15 @@ class TaskServiceTest {
 		val task = taskService.createTask("test-key", "https://example.com/image.png")
 
 		assertThat(task.id).isEqualTo(42L)
+	}
+
+	@Test
+	fun `createTask_-_동일_멱등성_키_다른_imageUrl_시_409_Conflict`() {
+		val entity = createEntity(id = 42L, imageUrl = "https://example.com/original.png")
+		whenever(taskRepository.findByIdempotencyKeyAndCreatedAtAfter(any(), any())).thenReturn(entity)
+
+		assertThatThrownBy { taskService.createTask("test-key", "https://example.com/different.png") }
+			.isInstanceOf(IdempotencyKeyConflictException::class.java)
 	}
 
 	@Test
