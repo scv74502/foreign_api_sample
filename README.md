@@ -55,6 +55,10 @@
 | **Test JPA 설정** |
 | TEST_JPA_HIBERNATE_DDL_AUTO | 테스트 DDL 자동 생성 모드 | validate |
 | TEST_JPA_SHOW_SQL | 테스트 SQL 로그 출력 | false |
+| **Mock Worker** |
+| MOCK_WORKER_BASE_URL | 외부 서비스 기본 URL | https://dev.realteeth.ai/mock |
+| MOCK_WORKER_CANDIDATE_NAME | 후보자 이름 | scv74502 |
+| MOCK_WORKER_EMAIL | 후보자 이메일 | scv74502@gmail.com |
 
 ### 데이터소스 구조
 
@@ -149,7 +153,7 @@ docker-compose up -d
 
 | 요구사항 | 고려 방안 | 선택 | 이유 |
 |---------|----------|------|------|
-| 작업 생명주기 추적 및<br>서버 재시작 시 정합성 보장 | 외부 서비스 상태 그대로 사용<br>(3단계) vs 중간 상태 추가(4단계) | **4단계 FSM**<br>(PENDING, PROCESSING,<br>COMPLETED, FAILED) | DB 저장 후 외부 전달 전 구간을 명시적으로 표현.<br>서버 다운 시 작업 복구 가능. Enum + Optimistic Lock으로 상태 전이 정합성 보장 |
+| 작업 생명주기 추적 및<br>서버 재시작 시 정합성 보장 | 외부 서비스 상태 그대로 사용<br>(3단계) vs 중간 상태 추가 | **5단계 FSM**<br>(PENDING, PROCESSING,<br>COMPLETED, FAILED,<br>CANCELLED) | DB 저장 후 외부 전달 전 구간을 명시적으로 표현.<br>서버 다운 시 작업 복구 가능. CANCELLED는 향후 요구사항 대비.<br>Enum + Optimistic Lock으로 상태 전이 정합성 보장 |
 
 ### 3. 멱등성 처리
 
@@ -184,7 +188,7 @@ docker-compose up -d
 - 동일 키로 재요청 시 새 작업을 생성하지 않고 기존 작업을 반환합니다.
 
 **DB UNIQUE 제약조건 (최종 방어선):**
-- `(idempotency_key, image_url)` 조합에 UNIQUE 제약이 설정되어 있습니다.
+- `idempotency_key`에 UNIQUE 제약이 설정되어 있습니다.
 - 동시에 동일 키로 요청이 도달해도 하나의 INSERT만 성공하고, 나머지는 UNIQUE 제약 위반 예외를 받아 기존 작업을 조회하여 반환합니다.
 - 동일 키 + 다른 imageUrl 요청 시 409 Conflict를 반환하여 키 오용을 감지합니다.
 
