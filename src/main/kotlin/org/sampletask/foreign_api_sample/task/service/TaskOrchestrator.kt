@@ -3,6 +3,7 @@ package org.sampletask.foreign_api_sample.task.service
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
 import org.sampletask.foreign_api_sample.common.ErrorCode
 import org.sampletask.foreign_api_sample.task.client.MockWorkerClient
 import org.sampletask.foreign_api_sample.task.domain.RecoveryAction
@@ -22,8 +23,10 @@ class TaskOrchestrator(
 	@Value("\${task.polling.initial-interval-ms:2000}") private val initialIntervalMs: Long,
 	@Value("\${task.polling.max-interval-ms:10000}") private val maxIntervalMs: Long,
 	@Value("\${task.polling.multiplier:2.0}") private val multiplier: Double,
+	@Value("\${task.polling.max-concurrent:5}") private val maxConcurrentPolling: Int,
 ) {
 	private val log = LoggerFactory.getLogger(javaClass)
+	private val pollingSemaphore = Semaphore(maxConcurrentPolling)
 
 	fun submitAsync(task: Task, delayMs: Long? = null) {
 		scope.launch {
@@ -62,34 +65,39 @@ class TaskOrchestrator(
 		val taskId = task.id
 		var intervalMs = initialIntervalMs
 
-		while (true) {
-			val jitter = intervalMs * (0.5 + Math.random() * 0.5)
-			delay(jitter.toLong())
+		pollingSemaphore.acquire()
+		try {
+			while (true) {
+				val jitter = intervalMs * (0.5 + Math.random() * 0.5)
+				delay(jitter.toLong())
 
-			try {
-				val status = mockWorkerClient.getJobStatus(jobId)
+				try {
+					val status = mockWorkerClient.getJobStatus(jobId)
 
-				when (status.status) {
-					"COMPLETED" -> {
-						val current = taskService.getTask(taskId)
-						current.result = status.result
-						current.transitionTo(TaskStatus.COMPLETED)
-						taskService.updateTask(current)
-						log.info("작업 {} 완료", taskId)
-						return
+					when (status.status) {
+						"COMPLETED" -> {
+							val current = taskService.getTask(taskId)
+							current.result = status.result
+							current.transitionTo(TaskStatus.COMPLETED)
+							taskService.updateTask(current)
+							log.info("작업 {} 완료", taskId)
+							return
+						}
+						"FAILED" -> {
+							failTask(taskId, status.errorCode, status.errorMessage)
+							return
+						}
+						else -> {
+							intervalMs = (intervalMs * multiplier).toLong().coerceAtMost(maxIntervalMs)
+						}
 					}
-					"FAILED" -> {
-						failTask(taskId, status.errorCode, status.errorMessage)
-						return
-					}
-					else -> {
-						intervalMs = (intervalMs * multiplier).toLong().coerceAtMost(maxIntervalMs)
-					}
+				} catch (e: MockWorkerException) {
+					handleError(taskId, e)
+					return
 				}
-			} catch (e: MockWorkerException) {
-				handleError(taskId, e)
-				return
 			}
+		} finally {
+			pollingSemaphore.release()
 		}
 	}
 
