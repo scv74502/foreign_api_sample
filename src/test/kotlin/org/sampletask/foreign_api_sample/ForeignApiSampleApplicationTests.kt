@@ -12,5 +12,4 @@ class ForeignApiSampleApplicationTests {
 	@Test
 	fun contextLoads() {
 	}
-
 }
