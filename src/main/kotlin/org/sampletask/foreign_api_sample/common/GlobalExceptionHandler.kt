@@ -1,6 +1,6 @@
-package org.sampletask.foreign_api_sample.task.controller
+package org.sampletask.foreign_api_sample.common
 
-import org.sampletask.foreign_api_sample.task.controller.dto.ErrorResponse
+import org.sampletask.foreign_api_sample.common.dto.ErrorResponse
 import org.sampletask.foreign_api_sample.task.exception.ApiKeyUnavailableException
 import org.sampletask.foreign_api_sample.task.exception.BusinessException
 import org.sampletask.foreign_api_sample.task.exception.IdempotencyKeyConflictException
@@ -31,7 +31,7 @@ class GlobalExceptionHandler {
 			}
 		return ResponseEntity
 			.status(e.httpStatus)
-			.body(ErrorResponse(code = e.errorCode, message = e.message))
+			.body(ErrorResponse(code = e.errorCode.code, message = e.message))
 	}
 
 	@ExceptionHandler(SystemException::class)
@@ -44,7 +44,7 @@ class GlobalExceptionHandler {
 			}
 		return ResponseEntity
 			.status(e.httpStatus)
-			.body(ErrorResponse(code = e.errorCode, message = e.message))
+			.body(ErrorResponse(code = e.errorCode.code, message = e.message))
 	}
 
 	@ExceptionHandler(MethodArgumentNotValidException::class)
@@ -55,20 +55,25 @@ class GlobalExceptionHandler {
 			}
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
-			.body(ErrorResponse(code = "VALIDATION_ERROR", message = message))
+			.body(ErrorResponse(code = ErrorCode.VALIDATION_ERROR.code, message = message))
 	}
 
 	@ExceptionHandler(MissingRequestHeaderException::class)
 	fun handleMissingHeader(e: MissingRequestHeaderException): ResponseEntity<ErrorResponse> {
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
-			.body(ErrorResponse(code = "MISSING_HEADER", message = e.message))
+			.body(ErrorResponse(code = ErrorCode.MISSING_HEADER.code, message = e.message))
 	}
 
 	@ExceptionHandler(IllegalArgumentException::class)
 	fun handleIllegalArgument(e: IllegalArgumentException): ResponseEntity<ErrorResponse> {
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
-			.body(ErrorResponse(code = "BAD_REQUEST", message = e.message ?: "Bad request"))
+			.body(
+				ErrorResponse(
+					code = ErrorCode.BAD_REQUEST.code,
+					message = e.message ?: ErrorCode.BAD_REQUEST.message("Bad request"),
+				),
+			)
 	}
 }

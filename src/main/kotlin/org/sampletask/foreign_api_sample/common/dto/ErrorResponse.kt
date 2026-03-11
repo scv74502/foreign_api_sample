@@ -1,4 +1,4 @@
-package org.sampletask.foreign_api_sample.task.controller.dto
+package org.sampletask.foreign_api_sample.common.dto
 
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
