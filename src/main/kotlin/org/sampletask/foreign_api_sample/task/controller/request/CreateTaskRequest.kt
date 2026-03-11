@@ -1,4 +1,4 @@
-package org.sampletask.foreign_api_sample.task.controller.dto
+package org.sampletask.foreign_api_sample.task.controller.request
 
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotBlank

@@ -69,21 +69,53 @@
 - `jdbc:tc:mysql:8.0:///` 프로토콜 사용
 - 테스트 환경 격리 및 재현성 보장
 
+## 포트 정보
+
+| 서비스 | 포트 | 설명 |
+|--------|------|------|
+| 애플리케이션 | 8080 | Spring Boot 서버 |
+| MySQL | 3306 | 데이터베이스 |
+| Swagger UI | 8080 | http://localhost:8080/swagger-ui/index.html |
+
 ## 실행 방법
 
-### 1. MySQL 실행 (Docker Compose)
+### 방법 1: Docker Compose 전체 스택 (권장)
+
+앱과 MySQL을 한 번에 실행합니다.
 
 ```bash
 docker-compose up -d
 ```
 
-### 2. 애플리케이션 실행
+정상 기동 확인:
+```bash
+# 컨테이너 상태 확인
+docker-compose ps
+
+# API 접근 확인
+curl http://localhost:8080/swagger-ui/index.html
+```
+
+종료:
+```bash
+docker-compose down
+```
+
+### 방법 2: 개별 실행 (로컬 개발)
+
+#### 1. MySQL 실행
+
+```bash
+docker-compose up -d mysql
+```
+
+#### 2. 애플리케이션 실행
 
 ```bash
 ./gradlew bootRun
 ```
 
-### 3. 테스트 실행
+### 테스트 실행
 
 ```bash
 ./gradlew test
@@ -91,7 +123,7 @@ docker-compose up -d
 
 **참고:** 테스트 실행 시 Testcontainers가 자동으로 MySQL 컨테이너를 생성하므로, Docker Compose 실행 불필요합니다.
 
-### 4. DB 재생성 (마이그레이션 스크립트 변경 시)
+### DB 재생성 (마이그레이션 스크립트 변경 시)
 
 ```bash
 # 컨테이너 중지 및 볼륨 삭제
@@ -99,9 +131,6 @@ docker-compose down -v
 
 # 재시작
 docker-compose up -d
-
-# 애플리케이션 실행
-./gradlew bootRun
 ```
 
 ## 아키텍처 및 기술 의사결정
@@ -142,3 +171,45 @@ docker-compose up -d
 | 요구사항 | 고려 방안 | 선택 | 이유 |
 |---------|----------|------|------|
 | HTTP 클라이언트 선택 | RestTemplate, OpenFeign,<br>RestClient, WebClient | **WebClient** | Coroutine 통합(awaitBody), 논블로킹 I/O.<br>WebFlux 전면 도입 없이 HTTP 클라이언트만 활용 |
+
+### 7. 동시 요청 발생 시 고려 사항
+
+동일한 요청이 동시에 여러 건 도달하는 경우를 다음과 같이 처리합니다.
+
+**멱등성 키 기반 중복 방지:**
+- 클라이언트는 모든 POST 요청에 `X-Idempotency-Key` 헤더를 포함합니다.
+- 동일 키로 재요청 시 새 작업을 생성하지 않고 기존 작업을 반환합니다.
+
+**DB UNIQUE 제약조건 (최종 방어선):**
+- `(idempotency_key, image_url)` 조합에 UNIQUE 제약이 설정되어 있습니다.
+- 동시에 동일 키로 요청이 도달해도 하나의 INSERT만 성공하고, 나머지는 UNIQUE 제약 위반 예외를 받아 기존 작업을 조회하여 반환합니다.
+- 동일 키 + 다른 imageUrl 요청 시 409 Conflict를 반환하여 키 오용을 감지합니다.
+
+**낙관적 잠금 (@Version):**
+- JPA `@Version` 기반 Optimistic Locking으로 상태 전이 정합성을 보장합니다.
+- 동시에 두 스레드가 같은 작업의 상태를 변경하려 하면 하나만 성공하고, 나머지는 `OptimisticLockException`이 발생합니다.
+
+**레이스 컨디션 대응:**
+- 애플리케이션 레벨에서 먼저 중복 키를 조회(SELECT)하고, 없으면 삽입(INSERT)합니다.
+- SELECT와 INSERT 사이에 다른 트랜잭션이 삽입하는 경우, DB UNIQUE 제약이 이를 차단합니다.
+- UNIQUE 제약 위반 시 기존 레코드를 조회하여 반환하므로 데이터 정합성이 유지됩니다.
+
+### 8. 트래픽 증가 시 병목 가능 지점
+
+트래픽 증가 시 예상되는 병목 지점을 우선순위별로 정리합니다.
+
+**1순위: 외부 서비스 처리 용량**
+- 이 시스템의 근본적 병목입니다. 내 서버가 아무리 빨라도 외부 서비스가 처리할 수 있는 속도를 초과할 수 없습니다.
+- Rate Limiter(초당 10건)와 Bulkhead(동시 10건)로 외부 서비스 호출을 제한하여 429 발생을 최소화합니다.
+
+**2순위: DB Connection Pool**
+- 코루틴 다수가 동시에 DB 커넥션을 요구하면 풀 고갈이 발생합니다.
+- HikariCP 풀 사이즈를 적정 수준으로 설정하고, 커넥션 획득 타임아웃을 짧게 설정하여 풀 고갈 시 빠르게 실패하도록 합니다.
+
+**3순위: Polling 부하**
+- PROCESSING 상태 작업이 N개이면 초당 N/interval건의 GET 요청이 외부 서비스에 발생합니다.
+- Polling 간격을 점진적으로 늘리고(2초 → 10초), 동시 Polling 수에 상한을 두어 제어합니다.
+
+**4순위: 서블릿 커넥션 한계**
+- OS 레벨 소켓 한계(file descriptor)에 도달할 수 있습니다.
+- max-connections 조정으로 대응하며, 근본적으로는 수평 확장이 필요합니다.

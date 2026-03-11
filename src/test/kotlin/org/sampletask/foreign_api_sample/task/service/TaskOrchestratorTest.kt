@@ -13,8 +13,8 @@ import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.sampletask.foreign_api_sample.task.client.MockWorkerClient
-import org.sampletask.foreign_api_sample.task.client.dto.JobStatusResponse
-import org.sampletask.foreign_api_sample.task.client.dto.ProcessResponse
+import org.sampletask.foreign_api_sample.task.client.response.JobStatusResponse
+import org.sampletask.foreign_api_sample.task.client.response.ProcessResponse
 import org.sampletask.foreign_api_sample.task.domain.Task
 import org.sampletask.foreign_api_sample.task.domain.TaskStatus
 import org.sampletask.foreign_api_sample.task.exception.MockWorkerException

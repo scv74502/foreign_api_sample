@@ -1,4 +1,4 @@
-package org.sampletask.foreign_api_sample.task.client.dto
+package org.sampletask.foreign_api_sample.task.client.response
 
 data class JobStatusResponse(
 	val jobId: String,

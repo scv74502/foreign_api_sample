@@ -1,4 +1,4 @@
-package org.sampletask.foreign_api_sample.task.controller.dto
+package org.sampletask.foreign_api_sample.task.controller.response
 
 import io.swagger.v3.oas.annotations.media.Schema
 import org.sampletask.foreign_api_sample.task.domain.Task
