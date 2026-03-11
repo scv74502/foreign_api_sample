@@ -21,6 +21,7 @@ class TaskOrchestrator(
 	@Value("\${task.max-retry-count:3}") private val maxRetryCount: Int,
 	@Value("\${task.polling.initial-interval-ms:2000}") private val initialIntervalMs: Long,
 	@Value("\${task.polling.max-interval-ms:10000}") private val maxIntervalMs: Long,
+	@Value("\${task.polling.multiplier:2.0}") private val multiplier: Double,
 ) {
 	private val log = LoggerFactory.getLogger(javaClass)
 
@@ -62,7 +63,8 @@ class TaskOrchestrator(
 		var intervalMs = initialIntervalMs
 
 		while (true) {
-			delay(intervalMs)
+			val jitter = intervalMs * (0.5 + Math.random() * 0.5)
+			delay(jitter.toLong())
 
 			try {
 				val status = mockWorkerClient.getJobStatus(jobId)
@@ -81,7 +83,7 @@ class TaskOrchestrator(
 						return
 					}
 					else -> {
-						intervalMs = (intervalMs * 2).coerceAtMost(maxIntervalMs)
+						intervalMs = (intervalMs * multiplier).toLong().coerceAtMost(maxIntervalMs)
 					}
 				}
 			} catch (e: MockWorkerException) {
