@@ -42,6 +42,8 @@ task:
   polling:
     initial-interval-ms: 2000
     max-interval-ms: 10000
+    multiplier: 2.0
+    max-concurrent: 5
 
 resilience4j:
   circuitbreaker:
