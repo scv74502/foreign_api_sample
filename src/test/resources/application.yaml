@@ -28,6 +28,17 @@ mock-worker:
     candidate-name: test-candidate
     email: test@example.com
 
+resilience4j:
+  circuitbreaker:
+    instances:
+      mock-worker:
+        register-health-indicator: false
+        sliding-window-size: 100
+        minimum-number-of-calls: 100
+        failure-rate-threshold: 100
+        wait-duration-in-open-state:
+          seconds: 1
+
 task:
   max-retry-count: 3
   idempotency:
