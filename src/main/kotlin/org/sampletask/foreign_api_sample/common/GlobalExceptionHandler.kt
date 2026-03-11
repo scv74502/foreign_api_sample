@@ -1,12 +1,12 @@
 package org.sampletask.foreign_api_sample.common
 
-import org.sampletask.foreign_api_sample.common.dto.ErrorResponse
+import org.sampletask.foreign_api_sample.common.exception.BusinessException
+import org.sampletask.foreign_api_sample.common.exception.ErrorResponse
+import org.sampletask.foreign_api_sample.common.exception.SystemException
 import org.sampletask.foreign_api_sample.task.exception.ApiKeyUnavailableException
-import org.sampletask.foreign_api_sample.task.exception.BusinessException
 import org.sampletask.foreign_api_sample.task.exception.IdempotencyKeyConflictException
 import org.sampletask.foreign_api_sample.task.exception.InvalidTaskStateException
 import org.sampletask.foreign_api_sample.task.exception.MockWorkerException
-import org.sampletask.foreign_api_sample.task.exception.SystemException
 import org.sampletask.foreign_api_sample.task.exception.TaskNotFoundException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -22,13 +22,12 @@ class GlobalExceptionHandler {
 
 	@ExceptionHandler(BusinessException::class)
 	fun handleBusinessException(e: BusinessException): ResponseEntity<ErrorResponse> {
-		@Suppress("UNUSED_VARIABLE")
-		val exhaustive: Unit =
-			when (e) {
-				is TaskNotFoundException -> log.debug("Task not found: {}", e.taskId)
-				is IdempotencyKeyConflictException -> log.debug("Idempotency key conflict: {}", e.idempotencyKey)
-				is InvalidTaskStateException -> log.debug("Invalid task state: {} -> {}", e.currentStatus, e.attemptedStatus)
-			}
+		when (e) {
+			is TaskNotFoundException -> log.debug("Task not found: {}", e.taskId)
+			is IdempotencyKeyConflictException -> log.debug("Idempotency key conflict: {}", e.idempotencyKey)
+			is InvalidTaskStateException -> log.debug("Invalid task state: {} -> {}", e.currentStatus, e.attemptedStatus)
+			else -> log.debug("Business error: {}", e.message)
+		}
 		return ResponseEntity
 			.status(e.httpStatus)
 			.body(ErrorResponse(code = e.errorCode.code, message = e.message))
@@ -36,12 +35,11 @@ class GlobalExceptionHandler {
 
 	@ExceptionHandler(SystemException::class)
 	fun handleSystemException(e: SystemException): ResponseEntity<ErrorResponse> {
-		@Suppress("UNUSED_VARIABLE")
-		val exhaustive: Unit =
-			when (e) {
-				is MockWorkerException -> log.error("외부 서비스 오류: {}", e.message)
-				is ApiKeyUnavailableException -> log.error("API Key 사용 불가: {}", e.message)
-			}
+		when (e) {
+			is MockWorkerException -> log.error("외부 서비스 오류: {}", e.message)
+			is ApiKeyUnavailableException -> log.error("API Key 사용 불가: {}", e.message)
+			else -> log.error("System error: {}", e.message)
+		}
 		return ResponseEntity
 			.status(e.httpStatus)
 			.body(ErrorResponse(code = e.errorCode.code, message = e.message))

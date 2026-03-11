@@ -5,8 +5,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
-import org.sampletask.foreign_api_sample.task.controller.dto.CreateTaskRequest
-import org.sampletask.foreign_api_sample.task.controller.dto.TaskResponse
+import org.sampletask.foreign_api_sample.task.controller.request.CreateTaskRequest
+import org.sampletask.foreign_api_sample.task.controller.response.TaskResponse
 import org.springframework.data.domain.Page
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping

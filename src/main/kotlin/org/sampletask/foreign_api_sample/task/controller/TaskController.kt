@@ -1,8 +1,8 @@
 package org.sampletask.foreign_api_sample.task.controller
 
 import jakarta.validation.Valid
-import org.sampletask.foreign_api_sample.task.controller.dto.CreateTaskRequest
-import org.sampletask.foreign_api_sample.task.controller.dto.TaskResponse
+import org.sampletask.foreign_api_sample.task.controller.request.CreateTaskRequest
+import org.sampletask.foreign_api_sample.task.controller.response.TaskResponse
 import org.sampletask.foreign_api_sample.task.domain.TaskStatus
 import org.sampletask.foreign_api_sample.task.service.TaskOrchestrator
 import org.sampletask.foreign_api_sample.task.service.TaskService
