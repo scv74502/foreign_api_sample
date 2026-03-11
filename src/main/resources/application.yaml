@@ -1,6 +1,12 @@
+server:
+  shutdown: graceful
+
 spring:
   application:
     name: foreign_api_sample
+
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
   datasource:
     url: ${SPRING_DATASOURCE_URL}
