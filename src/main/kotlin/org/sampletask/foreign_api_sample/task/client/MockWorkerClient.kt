@@ -6,9 +6,9 @@ import io.github.resilience4j.kotlin.bulkhead.executeSuspendFunction
 import io.github.resilience4j.kotlin.circuitbreaker.executeSuspendFunction
 import io.github.resilience4j.kotlin.ratelimiter.executeSuspendFunction
 import io.github.resilience4j.ratelimiter.RateLimiterRegistry
-import org.sampletask.foreign_api_sample.task.client.dto.JobStatusResponse
-import org.sampletask.foreign_api_sample.task.client.dto.ProcessRequest
-import org.sampletask.foreign_api_sample.task.client.dto.ProcessResponse
+import org.sampletask.foreign_api_sample.task.client.request.ProcessRequest
+import org.sampletask.foreign_api_sample.task.client.response.JobStatusResponse
+import org.sampletask.foreign_api_sample.task.client.response.ProcessResponse
 import org.sampletask.foreign_api_sample.task.exception.MockWorkerException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatusCode

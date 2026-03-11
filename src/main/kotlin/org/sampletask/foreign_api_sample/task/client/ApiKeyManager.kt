@@ -1,7 +1,7 @@
 package org.sampletask.foreign_api_sample.task.client
 
-import org.sampletask.foreign_api_sample.task.client.dto.IssueKeyRequest
-import org.sampletask.foreign_api_sample.task.client.dto.IssueKeyResponse
+import org.sampletask.foreign_api_sample.task.client.request.IssueKeyRequest
+import org.sampletask.foreign_api_sample.task.client.response.IssueKeyResponse
 import org.sampletask.foreign_api_sample.task.exception.ApiKeyUnavailableException
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value

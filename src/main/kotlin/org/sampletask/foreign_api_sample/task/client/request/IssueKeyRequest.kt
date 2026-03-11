@@ -1,4 +1,4 @@
-package org.sampletask.foreign_api_sample.task.client.dto
+package org.sampletask.foreign_api_sample.task.client.request
 
 data class IssueKeyRequest(
 	val candidateName: String,
