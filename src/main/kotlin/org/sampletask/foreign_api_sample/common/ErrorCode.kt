@@ -3,6 +3,7 @@ package org.sampletask.foreign_api_sample.common
 enum class ErrorCode(val code: String, val messageTemplate: String) {
 	TASK_NOT_FOUND("TASK_NOT_FOUND", "Task not found: %s"),
 	IDEMPOTENCY_KEY_CONFLICT("IDEMPOTENCY_KEY_CONFLICT", "Idempotency key conflict: %s"),
+	DUPLICATE_IMAGE_URL("DUPLICATE_IMAGE_URL", "Duplicate image URL request within window: %s"),
 	INVALID_TASK_STATE("INVALID_TASK_STATE", "Cannot transition from %s to %s"),
 	EXTERNAL_SERVICE_ERROR("EXTERNAL_SERVICE_ERROR", "Mock Worker error: HTTP %s%s"),
 	EXTERNAL_HTTP_ERROR("EXTERNAL_HTTP_ERROR", "External service HTTP error: %s"),

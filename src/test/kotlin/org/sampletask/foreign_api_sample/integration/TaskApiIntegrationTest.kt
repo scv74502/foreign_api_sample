@@ -67,24 +67,28 @@ class TaskApiIntegrationTest {
 		)
 	}
 
+	private fun uniqueUrl() = "https://example.com/test-${System.nanoTime()}.png"
+
 	@Test
 	fun `작업_생성_시_202_반환`() {
+		val url = uniqueUrl()
 		mockMvc
 			.perform(
 				MockMvcRequestBuilders
 					.post("/api/tasks")
-					.header("X-Idempotency-Key", "integration-key-1")
+					.header("X-Idempotency-Key", "integration-key-1-${System.nanoTime()}")
 					.contentType(MediaType.APPLICATION_JSON)
-					.content("""{"imageUrl": "https://example.com/test.png"}"""),
+					.content("""{"imageUrl": "$url"}"""),
 			).andExpect(status().isAccepted)
 			.andExpect(jsonPath("$.id").exists())
 			.andExpect(jsonPath("$.status").value("PENDING"))
-			.andExpect(jsonPath("$.imageUrl").value("https://example.com/test.png"))
+			.andExpect(jsonPath("$.imageUrl").value(url))
 	}
 
 	@Test
 	fun `동일_멱등성_키_재요청_시_같은_작업_반환`() {
 		val key = "integration-key-idempotent-${System.nanoTime()}"
+		val url = uniqueUrl()
 
 		val result1 =
 			mockMvc
@@ -93,7 +97,7 @@ class TaskApiIntegrationTest {
 						.post("/api/tasks")
 						.header("X-Idempotency-Key", key)
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("""{"imageUrl": "https://example.com/test.png"}"""),
+						.content("""{"imageUrl": "$url"}"""),
 				).andExpect(status().isAccepted)
 				.andReturn()
 
@@ -104,7 +108,7 @@ class TaskApiIntegrationTest {
 						.post("/api/tasks")
 						.header("X-Idempotency-Key", key)
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("""{"imageUrl": "https://example.com/test.png"}"""),
+						.content("""{"imageUrl": "$url"}"""),
 				).andExpect(status().isAccepted)
 				.andReturn()
 
@@ -125,6 +129,7 @@ class TaskApiIntegrationTest {
 	@Test
 	fun `작업_생성_후_조회_시_200`() {
 		val key = "integration-key-get-${System.nanoTime()}"
+		val url = uniqueUrl()
 		val createResult =
 			mockMvc
 				.perform(
@@ -132,7 +137,7 @@ class TaskApiIntegrationTest {
 						.post("/api/tasks")
 						.header("X-Idempotency-Key", key)
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("""{"imageUrl": "https://example.com/test.png"}"""),
+						.content("""{"imageUrl": "$url"}"""),
 				).andExpect(status().isAccepted)
 				.andReturn()
 
@@ -157,7 +162,7 @@ class TaskApiIntegrationTest {
 					.post("/api/tasks")
 					.header("X-Idempotency-Key", "integration-page-${System.nanoTime()}-$i")
 					.contentType(MediaType.APPLICATION_JSON)
-					.content("""{"imageUrl": "https://example.com/test-$i.png"}"""),
+					.content("""{"imageUrl": "${uniqueUrl()}"}"""),
 			)
 		}
 
@@ -178,7 +183,7 @@ class TaskApiIntegrationTest {
 				MockMvcRequestBuilders
 					.post("/api/tasks")
 					.contentType(MediaType.APPLICATION_JSON)
-					.content("""{"imageUrl": "https://example.com/test.png"}"""),
+					.content("""{"imageUrl": "${uniqueUrl()}"}"""),
 			).andExpect(status().isBadRequest)
 	}
 
@@ -193,6 +198,32 @@ class TaskApiIntegrationTest {
 					.content("""{"imageUrl": "not-a-url"}"""),
 			).andExpect(status().isUnprocessableEntity)
 			.andExpect(jsonPath("$.code").value("INVALID_URL_FORMAT"))
+	}
+
+	@Test
+	fun `동일_imageUrl_3분_내_재요청_시_409`() {
+		val url = "https://example.com/duplicate-test-${System.nanoTime()}.png"
+
+		// 첫 번째 요청 성공
+		mockMvc
+			.perform(
+				MockMvcRequestBuilders
+					.post("/api/tasks")
+					.header("X-Idempotency-Key", "dup-img-key-1-${System.nanoTime()}")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""{"imageUrl": "$url"}"""),
+			).andExpect(status().isAccepted)
+
+		// 두 번째 요청 (다른 멱등성 키, 같은 imageUrl) -> 409
+		mockMvc
+			.perform(
+				MockMvcRequestBuilders
+					.post("/api/tasks")
+					.header("X-Idempotency-Key", "dup-img-key-2-${System.nanoTime()}")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""{"imageUrl": "$url"}"""),
+			).andExpect(status().isConflict)
+			.andExpect(jsonPath("$.code").value("DUPLICATE_IMAGE_URL"))
 	}
 
 	@Test

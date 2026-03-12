@@ -4,6 +4,7 @@ import org.sampletask.foreign_api_sample.common.exception.BusinessException
 import org.sampletask.foreign_api_sample.common.exception.ErrorResponse
 import org.sampletask.foreign_api_sample.common.exception.SystemException
 import org.sampletask.foreign_api_sample.task.exception.ApiKeyUnavailableException
+import org.sampletask.foreign_api_sample.task.exception.DuplicateImageUrlRequestException
 import org.sampletask.foreign_api_sample.task.exception.IdempotencyKeyConflictException
 import org.sampletask.foreign_api_sample.task.exception.InvalidTaskStateException
 import org.sampletask.foreign_api_sample.task.exception.MockWorkerException
@@ -25,6 +26,7 @@ class GlobalExceptionHandler {
 		when (e) {
 			is TaskNotFoundException -> log.debug("Task not found: {}", e.taskId)
 			is IdempotencyKeyConflictException -> log.debug("Idempotency key conflict: {}", e.idempotencyKey)
+			is DuplicateImageUrlRequestException -> log.debug("Duplicate image URL request: {}", e.imageUrl)
 			is InvalidTaskStateException -> log.debug("Invalid task state: {} -> {}", e.currentStatus, e.attemptedStatus)
 			else -> log.debug("Business error: {}", e.message)
 		}

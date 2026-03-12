@@ -45,7 +45,7 @@
 | MYSQL_DATABASE | 데이터베이스 이름 | foreign_api_sample |
 | MYSQL_PORT | MySQL 호스트 포트 | 3306 |
 | **Spring Datasource** |
-| SPRING_DATASOURCE_URL | JDBC URL | jdbc:mysql://localhost:3306/foreign_api_sample |
+| SPRING_DATASOURCE_URL | JDBC URL | jdbc:mysql://localhost:3306/foreign_api_sample?useSSL=false&allowPublicKeyRetrieval=true |
 | SPRING_DATASOURCE_USERNAME | 사용자명 | test |
 | SPRING_DATASOURCE_PASSWORD | 비밀번호 | test |
 | **JPA 설정** |

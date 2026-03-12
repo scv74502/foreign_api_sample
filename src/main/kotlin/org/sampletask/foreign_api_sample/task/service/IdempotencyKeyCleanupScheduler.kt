@@ -13,14 +13,14 @@ import java.time.temporal.ChronoUnit
 @Component
 class IdempotencyKeyCleanupScheduler(
 	private val taskRepository: TaskRepository,
-	@Value("\${task.idempotency.expiry-hours:24}") private val expiryHours: Long,
+	@Value("\${task.idempotency.expiry-minutes:3}") private val expiryMinutes: Long,
 ) {
 	private val log = LoggerFactory.getLogger(javaClass)
 
 	@Scheduled(cron = "\${task.idempotency.cleanup-cron:0 0 3 * * *}")
 	@Transactional
 	fun cleanup() {
-		val cutoff = Instant.now().minus(expiryHours, ChronoUnit.HOURS)
+		val cutoff = Instant.now().minus(expiryMinutes, ChronoUnit.MINUTES)
 		val terminalStatuses = listOf(TaskStatus.COMPLETED.code, TaskStatus.FAILED.code)
 		val deleted = taskRepository.deleteByStatusInAndCreatedAtBefore(terminalStatuses, cutoff)
 		log.info("멱등성 키 정리: {}건 삭제", deleted)

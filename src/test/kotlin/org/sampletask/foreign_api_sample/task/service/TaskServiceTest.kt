@@ -2,15 +2,16 @@ package org.sampletask.foreign_api_sample.task.service
 
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.sampletask.foreign_api_sample.task.domain.TaskStatus
 import org.sampletask.foreign_api_sample.task.entity.TaskEntity
+import org.sampletask.foreign_api_sample.task.exception.DuplicateImageUrlRequestException
 import org.sampletask.foreign_api_sample.task.exception.IdempotencyKeyConflictException
 import org.sampletask.foreign_api_sample.task.exception.TaskNotFoundException
 import org.sampletask.foreign_api_sample.task.repository.TaskRepository
@@ -25,20 +26,30 @@ class TaskServiceTest {
 	@Mock
 	private lateinit var taskRepository: TaskRepository
 
-	@InjectMocks
 	private lateinit var taskService: TaskService
+
+	@BeforeEach
+	fun setUp() {
+		taskService = TaskService(
+			taskRepository = taskRepository,
+			duplicateImageUrlWindowMinutes = 3,
+			idempotencyExpiryMinutes = 3,
+		)
+	}
 
 	private fun createEntity(
 		id: Long = 1L,
 		status: Int = TaskStatus.PENDING.code,
 		idempotencyKey: String = "test-key",
 		imageUrl: String = "https://example.com/image.png",
+		imageUrlHash: String = TaskService.sha256("https://example.com/image.png"),
 	): TaskEntity {
 		return TaskEntity(
 			id = id,
 			status = status,
 			idempotencyKey = idempotencyKey,
 			imageUrl = imageUrl,
+			imageUrlHash = imageUrlHash,
 			createdAt = Instant.now(),
 			updatedAt = Instant.now(),
 		)
@@ -47,6 +58,7 @@ class TaskServiceTest {
 	@Test
 	fun `createTask_-_새로운_작업_생성`() {
 		val entity = createEntity()
+		whenever(taskRepository.findByImageUrlHashAndCreatedAtAfter(any(), any())).thenReturn(null)
 		whenever(taskRepository.findByIdempotencyKeyAndCreatedAtAfter(any(), any())).thenReturn(null)
 		whenever(taskRepository.save(any<TaskEntity>())).thenReturn(entity)
 
@@ -59,6 +71,7 @@ class TaskServiceTest {
 	@Test
 	fun `createTask_-_멱등성_키로_기존_작업_반환`() {
 		val entity = createEntity(id = 42L)
+		whenever(taskRepository.findByImageUrlHashAndCreatedAtAfter(any(), any())).thenReturn(null)
 		whenever(taskRepository.findByIdempotencyKeyAndCreatedAtAfter(any(), any())).thenReturn(entity)
 
 		val task = taskService.createTask("test-key", "https://example.com/image.png")
@@ -68,11 +81,45 @@ class TaskServiceTest {
 
 	@Test
 	fun `createTask_-_동일_멱등성_키_다른_imageUrl_시_409_Conflict`() {
-		val entity = createEntity(id = 42L, imageUrl = "https://example.com/original.png")
+		val entity = createEntity(id = 42L, imageUrl = "https://example.com/original.png", imageUrlHash = TaskService.sha256("https://example.com/original.png"))
+		whenever(taskRepository.findByImageUrlHashAndCreatedAtAfter(any(), any())).thenReturn(null)
 		whenever(taskRepository.findByIdempotencyKeyAndCreatedAtAfter(any(), any())).thenReturn(entity)
 
 		assertThatThrownBy { taskService.createTask("test-key", "https://example.com/different.png") }
 			.isInstanceOf(IdempotencyKeyConflictException::class.java)
+	}
+
+	@Test
+	fun `createTask_-_3분_내_동일_imageUrl_다른_멱등성_키_재요청_시_409_Conflict`() {
+		val existingEntity = createEntity(id = 10L, idempotencyKey = "existing-key")
+		whenever(taskRepository.findByImageUrlHashAndCreatedAtAfter(any(), any())).thenReturn(existingEntity)
+
+		assertThatThrownBy { taskService.createTask("new-key", "https://example.com/image.png") }
+			.isInstanceOf(DuplicateImageUrlRequestException::class.java)
+	}
+
+	@Test
+	fun `createTask_-_동일_imageUrl_동일_멱등성_키_재요청_시_기존_작업_반환`() {
+		val existingEntity = createEntity(id = 10L, idempotencyKey = "same-key")
+		whenever(taskRepository.findByImageUrlHashAndCreatedAtAfter(any(), any())).thenReturn(existingEntity)
+		whenever(taskRepository.findByIdempotencyKeyAndCreatedAtAfter(any(), any())).thenReturn(existingEntity)
+
+		val task = taskService.createTask("same-key", "https://example.com/image.png")
+
+		assertThat(task.id).isEqualTo(10L)
+	}
+
+	@Test
+	fun `createTask_-_다른_imageUrl이면_정상_생성`() {
+		val newUrl = "https://example.com/different.png"
+		val entity = createEntity(id = 2L, imageUrl = newUrl, imageUrlHash = TaskService.sha256(newUrl), idempotencyKey = "another-key")
+		whenever(taskRepository.findByImageUrlHashAndCreatedAtAfter(any(), any())).thenReturn(null)
+		whenever(taskRepository.findByIdempotencyKeyAndCreatedAtAfter(any(), any())).thenReturn(null)
+		whenever(taskRepository.save(any<TaskEntity>())).thenReturn(entity)
+
+		val task = taskService.createTask("another-key", newUrl)
+
+		assertThat(task.id).isEqualTo(2L)
 	}
 
 	@Test
@@ -114,5 +161,22 @@ class TaskServiceTest {
 		val page = taskService.listTasks(TaskStatus.COMPLETED, pageable)
 
 		assertThat(page.content).hasSize(1)
+	}
+
+	@Test
+	fun `sha256_-_동일_입력에_동일_해시_반환`() {
+		val hash1 = TaskService.sha256("https://example.com/image.png")
+		val hash2 = TaskService.sha256("https://example.com/image.png")
+
+		assertThat(hash1).isEqualTo(hash2)
+		assertThat(hash1).hasSize(64)
+	}
+
+	@Test
+	fun `sha256_-_다른_입력에_다른_해시_반환`() {
+		val hash1 = TaskService.sha256("https://example.com/image1.png")
+		val hash2 = TaskService.sha256("https://example.com/image2.png")
+
+		assertThat(hash1).isNotEqualTo(hash2)
 	}
 }
