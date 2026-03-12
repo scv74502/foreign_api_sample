@@ -41,8 +41,10 @@ resilience4j:
 
 task:
   max-retry-count: 3
+  duplicate-image-url:
+    window-minutes: 3
   idempotency:
-    expiry-hours: 24
+    expiry-minutes: 3
     cleanup-cron: "-"
   polling:
     initial-interval-ms: 100

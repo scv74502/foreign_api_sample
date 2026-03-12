@@ -45,8 +45,10 @@ mock-worker:
 
 task:
   max-retry-count: 3
+  duplicate-image-url:
+    window-minutes: 3
   idempotency:
-    expiry-hours: 24
+    expiry-minutes: 3
     cleanup-cron: "0 0 3 * * *"
   polling:
     initial-interval-ms: 2000

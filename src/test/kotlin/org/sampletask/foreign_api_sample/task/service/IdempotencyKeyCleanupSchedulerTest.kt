@@ -23,7 +23,7 @@ class IdempotencyKeyCleanupSchedulerTest {
 	fun setUp() {
 		scheduler = IdempotencyKeyCleanupScheduler(
 			taskRepository = taskRepository,
-			expiryHours = 24,
+			expiryMinutes = 3,
 		)
 	}
 

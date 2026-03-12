@@ -12,6 +12,7 @@ import java.time.Instant
 	name = "task",
 	indexes = [
 		Index(name = "idx_idempotency_key", columnList = "idempotency_key", unique = true),
+		Index(name = "idx_image_url_hash_created_at", columnList = "image_url_hash, created_at"),
 	],
 )
 class TaskEntity(
@@ -27,6 +28,9 @@ class TaskEntity(
 
 	@Column(name = "image_url", nullable = false, length = 2048)
 	val imageUrl: String,
+
+	@Column(name = "image_url_hash", nullable = false, columnDefinition = "CHAR(64)")
+	val imageUrlHash: String = "",
 
 	@Column(name = "external_job_id", nullable = true, length = 255)
 	var externalJobId: String? = null,

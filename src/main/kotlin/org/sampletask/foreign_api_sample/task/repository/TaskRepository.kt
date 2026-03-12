@@ -11,6 +11,8 @@ import java.time.Instant
 interface TaskRepository : JpaRepository<TaskEntity, Long> {
 	fun findByIdempotencyKeyAndCreatedAtAfter(idempotencyKey: String, cutoff: Instant): TaskEntity?
 
+	fun findByImageUrlHashAndCreatedAtAfter(imageUrlHash: String, cutoff: Instant): TaskEntity?
+
 	fun findByStatus(status: Int, pageable: Pageable): Page<TaskEntity>
 
 	fun findAllByStatusIn(statuses: List<Int>): List<TaskEntity>

@@ -20,6 +20,7 @@ import org.sampletask.foreign_api_sample.task.domain.TaskStatus
 import org.sampletask.foreign_api_sample.task.entity.TaskEntity
 import org.sampletask.foreign_api_sample.task.repository.TaskRepository
 import org.sampletask.foreign_api_sample.task.service.TaskRecoveryService
+import org.sampletask.foreign_api_sample.task.service.TaskService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -43,6 +44,27 @@ class TaskRecoveryIntegrationTest {
 
 	@Autowired
 	private lateinit var circuitBreakerRegistry: CircuitBreakerRegistry
+
+	private fun uniqueUrl(prefix: String = "recovery") = "https://example.com/$prefix-${System.nanoTime()}.png"
+
+	private fun createTestEntity(
+		status: Int,
+		idempotencyKey: String,
+		imageUrl: String = uniqueUrl(),
+		externalJobId: String? = null,
+	): TaskEntity {
+		return taskRepository.save(
+			TaskEntity(
+				status = status,
+				idempotencyKey = idempotencyKey,
+				imageUrl = imageUrl,
+				imageUrlHash = TaskService.sha256(imageUrl),
+				externalJobId = externalJobId,
+				createdAt = Instant.now(),
+				updatedAt = Instant.now(),
+			),
+		)
+	}
 
 	@BeforeEach
 	fun setUp() {
@@ -127,17 +149,10 @@ class TaskRecoveryIntegrationTest {
 					),
 			)
 
-			val entity =
-				taskRepository.save(
-					TaskEntity(
-						status = TaskStatus.PROCESSING.code,
-						idempotencyKey = "recovery-no-jobid-${System.nanoTime()}",
-						imageUrl = "https://example.com/recovery.png",
-						externalJobId = null,
-						createdAt = Instant.now(),
-						updatedAt = Instant.now(),
-					),
-				)
+			val entity = createTestEntity(
+				status = TaskStatus.PROCESSING.code,
+				idempotencyKey = "recovery-no-jobid-${System.nanoTime()}",
+			)
 
 			recoveryService.recoverTasks()
 
@@ -165,17 +180,11 @@ class TaskRecoveryIntegrationTest {
 					),
 			)
 
-			val entity =
-				taskRepository.save(
-					TaskEntity(
-						status = TaskStatus.PROCESSING.code,
-						idempotencyKey = "recovery-completed-${System.nanoTime()}",
-						imageUrl = "https://example.com/recovery.png",
-						externalJobId = jobId,
-						createdAt = Instant.now(),
-						updatedAt = Instant.now(),
-					),
-				)
+			val entity = createTestEntity(
+				status = TaskStatus.PROCESSING.code,
+				idempotencyKey = "recovery-completed-${System.nanoTime()}",
+				externalJobId = jobId,
+			)
 
 			recoveryService.recoverTasks()
 
@@ -203,17 +212,11 @@ class TaskRecoveryIntegrationTest {
 					),
 			)
 
-			val entity =
-				taskRepository.save(
-					TaskEntity(
-						status = TaskStatus.PROCESSING.code,
-						idempotencyKey = "recovery-failed-${System.nanoTime()}",
-						imageUrl = "https://example.com/recovery.png",
-						externalJobId = jobId,
-						createdAt = Instant.now(),
-						updatedAt = Instant.now(),
-					),
-				)
+			val entity = createTestEntity(
+				status = TaskStatus.PROCESSING.code,
+				idempotencyKey = "recovery-failed-${System.nanoTime()}",
+				externalJobId = jobId,
+			)
 
 			recoveryService.recoverTasks()
 
@@ -253,16 +256,10 @@ class TaskRecoveryIntegrationTest {
 					),
 			)
 
-			val entity =
-				taskRepository.save(
-					TaskEntity(
-						status = TaskStatus.PENDING.code,
-						idempotencyKey = "recovery-pending-${System.nanoTime()}",
-						imageUrl = "https://example.com/recovery.png",
-						createdAt = Instant.now(),
-						updatedAt = Instant.now(),
-					),
-				)
+			val entity = createTestEntity(
+				status = TaskStatus.PENDING.code,
+				idempotencyKey = "recovery-pending-${System.nanoTime()}",
+			)
 
 			recoveryService.recoverTasks()
 
@@ -311,40 +308,21 @@ class TaskRecoveryIntegrationTest {
 					),
 			)
 
-			val pendingEntity =
-				taskRepository.save(
-					TaskEntity(
-						status = TaskStatus.PENDING.code,
-						idempotencyKey = "multi-pending-${System.nanoTime()}",
-						imageUrl = "https://example.com/multi1.png",
-						createdAt = Instant.now(),
-						updatedAt = Instant.now(),
-					),
-				)
+			val pendingEntity = createTestEntity(
+				status = TaskStatus.PENDING.code,
+				idempotencyKey = "multi-pending-${System.nanoTime()}",
+			)
 
-			val processingWithJobEntity =
-				taskRepository.save(
-					TaskEntity(
-						status = TaskStatus.PROCESSING.code,
-						idempotencyKey = "multi-processing-${System.nanoTime()}",
-						imageUrl = "https://example.com/multi2.png",
-						externalJobId = processingJobId,
-						createdAt = Instant.now(),
-						updatedAt = Instant.now(),
-					),
-				)
+			val processingWithJobEntity = createTestEntity(
+				status = TaskStatus.PROCESSING.code,
+				idempotencyKey = "multi-processing-${System.nanoTime()}",
+				externalJobId = processingJobId,
+			)
 
-			val processingNoJobEntity =
-				taskRepository.save(
-					TaskEntity(
-						status = TaskStatus.PROCESSING.code,
-						idempotencyKey = "multi-nojob-${System.nanoTime()}",
-						imageUrl = "https://example.com/multi3.png",
-						externalJobId = null,
-						createdAt = Instant.now(),
-						updatedAt = Instant.now(),
-					),
-				)
+			val processingNoJobEntity = createTestEntity(
+				status = TaskStatus.PROCESSING.code,
+				idempotencyKey = "multi-nojob-${System.nanoTime()}",
+			)
 
 			recoveryService.recoverTasks()
 
@@ -388,17 +366,11 @@ class TaskRecoveryIntegrationTest {
 					),
 			)
 
-			val entity =
-				taskRepository.save(
-					TaskEntity(
-						status = TaskStatus.PROCESSING.code,
-						idempotencyKey = "lock-conflict-${System.nanoTime()}",
-						imageUrl = "https://example.com/lock.png",
-						externalJobId = jobId,
-						createdAt = Instant.now(),
-						updatedAt = Instant.now(),
-					),
-				)
+			val entity = createTestEntity(
+				status = TaskStatus.PROCESSING.code,
+				idempotencyKey = "lock-conflict-${System.nanoTime()}",
+				externalJobId = jobId,
+			)
 
 			// 복구 호출 전에 version을 강제로 증가시켜 optimistic lock 충돌 유발
 			val loaded = taskRepository.findById(entity.id).get()
