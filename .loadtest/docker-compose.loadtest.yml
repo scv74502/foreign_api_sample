@@ -1,0 +1,89 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: loadtest_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: loadtest
+      MYSQL_DATABASE: foreign_api_sample
+      MYSQL_USER: loadtest
+      MYSQL_PASSWORD: loadtest
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "${MYSQL_CPUS:-2.0}"
+          memory: "${MYSQL_MEM:-2048m}"
+
+  wiremock:
+    image: wiremock/wiremock:3.12.1
+    container_name: loadtest_wiremock
+    command: --global-response-templating
+    volumes:
+      - ./testconfig/wiremock-mappings:/home/wiremock/mappings
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/__admin/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "${WIREMOCK_CPUS:-0.5}"
+          memory: "${WIREMOCK_MEM:-512m}"
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: loadtest_app
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/foreign_api_sample?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: loadtest
+      SPRING_DATASOURCE_PASSWORD: loadtest
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "false"
+      MOCK_WORKER_BASE_URL: http://wiremock:8080/mock
+      MOCK_WORKER_CANDIDATE_NAME: loadtest
+      MOCK_WORKER_EMAIL: loadtest@example.com
+    depends_on:
+      mysql:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/tasks?size=1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "${APP_CPUS:-4.0}"
+          memory: "${APP_MEM:-2048m}"
+
+  k6:
+    image: grafana/k6:0.56.0
+    container_name: loadtest_k6
+    volumes:
+      - ./testscript:/scripts
+      - ./testresult/${RESULT_SUBDIR:-default}:/results
+    environment:
+      K6_BASE_URL: http://app:8080/api/tasks
+      K6_VUS: "${K6_VUS:-20}"
+      K6_DURATION: "${K6_DURATION:-2m}"
+      K6_RAMP_UP: "${K6_RAMP_UP:-30s}"
+      K6_RAMP_DOWN: "${K6_RAMP_DOWN:-30s}"
+    command: run --summary-export /results/summary.json /scripts/stress-test.js
+    depends_on:
+      app:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "${K6_CPUS:-2.0}"
+          memory: "${K6_MEM:-1024m}"
