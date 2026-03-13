@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/mock/process/.*"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "fixedDelayMilliseconds": 500,
+    "jsonBody": {
+      "jobId": "{{request.pathSegments.[2]}}",
+      "status": "COMPLETED",
+      "result": "https://loadtest-result.example.com/processed-image.png"
+    },
+    "transformers": ["response-template"]
+  }
+}
