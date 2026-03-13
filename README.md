@@ -139,6 +139,84 @@ docker-compose up -d mysql
 
 **참고:** 테스트 실행 시 Testcontainers가 자동으로 MySQL 컨테이너를 생성하므로, Docker Compose 실행 불필요합니다.
 
+### 부하 테스트
+
+k6 기반 부하 테스트 환경입니다. Docker로 MySQL, WireMock(외부 서비스 Mock), App, k6를 일괄 구동하여 실제와 유사한 환경에서 성능을 측정합니다.
+
+#### 디렉토리 구조
+
+```
+.loadtest/
+  docker-compose.loadtest.yml   # 테스트 인프라 정의
+  run.sh                        # 실행 스크립트
+  testscript/                   # k6 테스트 스크립트
+    stress-test.js
+  testresult/                   # 실행 결과 (gitignore)
+    YYMMDD-HH:MM:SS/
+      summary.json
+  testconfig/                   # 외부 서비스 Mock 설정
+    wiremock-mappings/
+```
+
+#### 기본 실행
+
+```bash
+cd .loadtest
+./run.sh
+```
+
+- Docker 필수, OS 감지 후 자동 리소스 분배
+- 실행 시 MySQL, WireMock, App, k6 순서로 기동
+- 결과는 `testresult/YYMMDD-HH:MM:SS/summary.json`에 저장
+
+#### CLI 옵션
+
+| 옵션 | 설명 | 기본값 |
+|------|------|--------|
+| `--vus NUM` | 가상 사용자 수 | 20 |
+| `--duration TIME` | 부하 유지 시간 | 2m |
+| `-d, --down` | 컨테이너 정리만 수행 | - |
+
+#### 환경변수 오버라이드
+
+- 리소스: `APP_CPUS`, `APP_MEM`, `MYSQL_CPUS`, `MYSQL_MEM`, `K6_CPUS`, `K6_MEM`, `WIREMOCK_CPUS`, `WIREMOCK_MEM`
+- k6: `K6_VUS`, `K6_DURATION`, `K6_RAMP_UP`, `K6_RAMP_DOWN`
+
+#### 시나리오별 실행 예시
+
+```bash
+# 가벼운 검증
+./run.sh --vus 5 --duration 30s
+
+# 표준 부하 (기본값)
+./run.sh
+
+# 고부하
+./run.sh --vus 100 --duration 5m
+
+# 수동 리소스 지정
+APP_CPUS=4.0 APP_MEM=4096m ./run.sh --vus 50
+```
+
+#### 테스트 시나리오 (stress-test.js)
+
+3단계 ramp-up/sustain/ramp-down 패턴으로 다음을 순차 실행합니다:
+
+1. `POST /api/tasks` — 작업 생성
+2. `GET /api/tasks/{id}` — 폴링 (최대 10회, 2초 간격)
+3. `GET /api/tasks?size=5` — 목록 조회
+
+#### 성능 기준 (Thresholds)
+
+- p95 응답 시간 < 2000ms
+- 요청 실패율 < 1%
+
+#### 정리
+
+```bash
+./run.sh --down
+```
+
 ### DB 재생성 (마이그레이션 스크립트 변경 시)
 
 ```bash
