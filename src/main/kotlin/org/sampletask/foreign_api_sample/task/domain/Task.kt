@@ -8,6 +8,7 @@ class Task(
 	var status: TaskStatus = TaskStatus.PENDING,
 	val idempotencyKey: String,
 	val imageUrl: String,
+	val imageUrlHash: String = "",
 	var externalJobId: String? = null,
 	var retryCount: Int = 0,
 	var result: String? = null,

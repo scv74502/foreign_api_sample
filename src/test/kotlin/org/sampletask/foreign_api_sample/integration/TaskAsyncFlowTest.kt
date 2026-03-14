@@ -77,7 +77,7 @@ class TaskAsyncFlowTest {
 						.post("/api/tasks")
 						.header("X-Idempotency-Key", key)
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("""{"imageUrl": "https://example.com/async-test.png"}"""),
+						.content("""{"imageUrl": "https://example.com/async-test-${System.nanoTime()}.png"}"""),
 				).andExpect(status().isAccepted)
 				.andReturn()
 
@@ -130,7 +130,7 @@ class TaskAsyncFlowTest {
 						.post("/api/tasks")
 						.header("X-Idempotency-Key", key)
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("""{"imageUrl": "https://example.com/fail-test.png"}"""),
+						.content("""{"imageUrl": "https://example.com/fail-test-${System.nanoTime()}.png"}"""),
 				).andExpect(status().isAccepted)
 				.andReturn()
 
