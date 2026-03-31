@@ -5,7 +5,7 @@ import java.time.Instant
 
 class Task(
 	val id: Long = 0,
-	var status: TaskStatus = TaskStatus.PENDING,
+	status: TaskStatus = TaskStatus.PENDING,
 	val idempotencyKey: String,
 	val imageUrl: String,
 	val imageUrlHash: String = "",
@@ -18,6 +18,9 @@ class Task(
 	var updatedAt: Instant = Instant.now(),
 	val version: Long = 0,
 ) {
+	var status: TaskStatus = status
+		private set
+
 	fun transitionTo(taskStatus: TaskStatus) {
 		if (!status.canTransitionTo(taskStatus)) {
 			throw InvalidTaskStateException(status, taskStatus)
